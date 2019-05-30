@@ -184,9 +184,9 @@ void fsm_tick(struct FSM *fsm) {
         }
         //
         if (fsm->debug) {
-            fprintf(stdout, "CS: ");
+            fprintf(stdout, "[%04d] cs: ", fsm->tick);
             print_state(stdout, fsm->state);
-            fprintf(stdout, ", TC: %d\n", fsm->tick);
+            fprintf(stdout, "\n");
             fflush(stdout);
         }
     }
@@ -203,6 +203,7 @@ void fsm_update(struct FSM *fsm) {
     }
     if (fsm != 0 && fsm->debug == true) {
         print_input(fsm, stdout);
+        fprintf(fsm->fd, "\n"), fflush(fsm->fd);
     }
 }
 
@@ -323,6 +324,5 @@ void print_input(struct FSM *fsm, FILE *fd) {
     for (i = 0; i < End_InputIndicator; ++i) {
         fprintf(fd, "%s", input(fsm, i, 0) == true ? "1" : "0");
     }
-    fprintf(fd, "\n");
     fflush(fd);
 }
