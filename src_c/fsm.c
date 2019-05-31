@@ -50,9 +50,16 @@ inline void memory_set_bit(uint8_t *mem, const uint8_t bit) {
     *((uint64_t *) mem) |= (1 << bit);
 }
 
+inline void memory_reset_bit(uint8_t *mem, const uint8_t bit) {
+    *((uint64_t *) mem) &= ~(1 << bit);
+}
+
 #endif
 
-void signal(struct FSM *fsm, enum Signal signal, uint8_t count);
+inline void fsm_signal(struct FSM *fsm, enum Signal signal, uint8_t count);
+inline void fsm_reset_signal(struct FSM *fsm, enum Signal signal, uint8_t count);
+bool output(struct FSM *fsm, enum Signal in, uint8_t count);
+void print_output(struct FSM *fsm, FILE *fd);
 
 enum Input {
     DeviceRunning = 0,                 // Взодной сигнал работы устройства
@@ -159,20 +166,64 @@ void fsm_tick(struct FSM *fsm) {
                     fsm->state = S2;
                 } else {
                     fsm->state = Sc;
-                    signal(fsm, EndLittleSequence, 0);
-                    signal(fsm, NextLittleCircle, 0);
+                    fsm_signal(fsm, EndLittleSequence, 0);
+                    fsm_signal(fsm, NextLittleCircle, 0);
                 }
                 break;
             }
+            /* Двигаемся налево пока не придем к нужному нам датчику */
             case S2: {
-                fsm->state = PowerOff;
+                if (input(fsm, PositionSensor, fsm->little_sequence_count) == true) {
+                    fsm->state = S3;
+                    fsm_signal(fsm, OpenGate, fsm->little_sequence_count);
+                    fsm_reset_signal(fsm, DoStepLeft, 0);
+                } else {
+                    fsm_signal(fsm, DoStepLeft, 0);
+                }
                 break;
             }
+            /* Смотрим когда у нас откроется залонка */
+            case S3: {
+                if (input(fsm, OpenGateSensor, fsm->little_sequence_count) == true) {
+                    fsm_reset_signal(fsm, OpenGate, fsm->little_sequence_count);
+                    fsm_signal(fsm, ResetTimer, fsm->little_sequence_count);
+                    fsm->state = S4;
+                }
+                break;
+            }
+            /* Ожидает когда сработает таймер */
+            case S4: {
+                if (input(fsm, TimerClockOverflow, fsm->little_sequence_count) == true) {
+                    fsm_reset_signal(fsm, ResetTimer, fsm->little_sequence_count);
+                    fsm_signal(fsm, OpenGate, fsm->little_sequence_count);
+                    fsm->state = S5;
+                }
+                break;
+            }
+            /* Закрытие залонки */
+            case S5: {
+                if (input(fsm, OpenGateSensor, fsm->little_sequence_count) == false) {
+                    fsm_reset_signal(fsm, OpenGate, fsm->little_sequence_count);
+                    fsm->state = S6;
+                }
+                break;
+            }
+            /* Завершение малого цикла */
+            case S6: {
+                fsm->state = Sc;
+                fsm_signal(fsm, EndLittleSequence, 0);
+                fsm_signal(fsm, NextLittleCircle, 0);
+                break;
+            }
+
             case Sc: {
                 if (input(fsm, LittleSequenceCounterOverflow, 0) == true) {
                     fsm->state = Send;
                 } else {
+                    fsm->little_sequence_count++;
                     fsm->state = S0;
+                    fsm_reset_signal(fsm, EndLittleSequence, 0);
+                    fsm_reset_signal(fsm, NextLittleCircle, 0);
                 }
                 break;
             }
@@ -180,11 +231,18 @@ void fsm_tick(struct FSM *fsm) {
                 fsm->state = PowerOff;
                 break;
             }
-
+            case Se:
+            case PowerOff:
+                fsm->state = PowerOff;
+                break;
         }
         //
         if (fsm->debug) {
-            fprintf(stdout, "[%04d] cs: ", fsm->tick);
+            fprintf(stdout, "[%04d] ", fsm->tick);
+            print_input(fsm, stdout);
+            fprintf(stdout, "|");
+            print_output(fsm, stdout);
+            fprintf(stdout, "| cs: ");
             print_state(stdout, fsm->state);
             fprintf(stdout, "\n");
             fflush(stdout);
@@ -200,10 +258,6 @@ void fsm_update(struct FSM *fsm) {
             fclose(fsm->fd);
             fsm->fd = 0;
         }
-    }
-    if (fsm != 0 && fsm->debug == true) {
-        print_input(fsm, stdout);
-        fprintf(fsm->fd, "\n"), fflush(fsm->fd);
     }
 }
 
@@ -236,25 +290,25 @@ void print_state(FILE *fd, enum State state) {
             text = "PowerOff";
             break;
         case S0:
-            text = "S0";
+            text = "Начало малого цикла";
             break;
         case S1:
-            text = "S1";
+            text = "Исполнение малого цикла";
             break;
         case S2:
-            text = "S2";
+            text = "Позиционирование";
             break;
         case S3:
-            text = "S3";
+            text = "Открытие заслонки";
             break;
         case S4:
-            text = "S4";
+            text = "Наполнение";
             break;
         case S5:
-            text = "S5";
+            text = "Закрытие заслонки";
             break;
         case S6:
-            text = "S6";
+            text = "Завершение малого цикла";
             break;
         case Sc:
             text = "Sc";
@@ -269,11 +323,19 @@ void print_state(FILE *fd, enum State state) {
     }
 }
 
-void signal(struct FSM *fsm, enum Signal signal, uint8_t count) {
+void fsm_signal(struct FSM *fsm, enum Signal signal, uint8_t count) {
     if (count > 0) {
         memory_set_bit((uint8_t *) &fsm->output, signal + count);
     } else {
         memory_set_bit((uint8_t *) &fsm->output, signal);
+    }
+}
+
+void fsm_reset_signal(struct FSM *fsm, enum Signal signal, uint8_t count) {
+    if (count > 0) {
+        memory_reset_bit((uint8_t *) &fsm->output, signal + count);
+    } else {
+        memory_reset_bit((uint8_t *) &fsm->output, signal);
     }
 }
 
@@ -323,6 +385,22 @@ void print_input(struct FSM *fsm, FILE *fd) {
     int i;
     for (i = 0; i < End_InputIndicator; ++i) {
         fprintf(fd, "%s", input(fsm, i, 0) == true ? "1" : "0");
+    }
+    fflush(fd);
+}
+
+bool output(struct FSM *fsm, enum Signal in, uint8_t count) {
+    if (count > 0) {
+        return memory_get_bit((const uint8_t *) &fsm->output, in + count);
+    } else {
+        return memory_get_bit((const uint8_t *) &fsm->output, in);
+    }
+}
+
+void print_output(struct FSM *fsm, FILE *fd) {
+    int i;
+    for (i = 0; i < End_OutputIndicator; ++i) {
+        fprintf(fd, "%s", output(fsm, i, 0) == true ? "1" : "0");
     }
     fflush(fd);
 }
