@@ -3,8 +3,12 @@
 #include <string.h>
 #include "fsm.h"
 
+struct FSM;
+
 enum State {
     PowerOn,
+
+    Ss,
 
     S0, S1, S2, S3, S4, S5, S6, Sc,
     Se,
@@ -13,7 +17,7 @@ enum State {
     PowerOff
 };
 
-static void print_state(FILE *fd, enum State state);
+static void print_state(FILE *fd, struct FSM *fsm);
 
 enum Signal {
     TurnStepLeft = 0,                  // Один шаг склонения контейнера влево
@@ -151,8 +155,16 @@ void fsm_tick(struct FSM *fsm) {
         //
         switch (fsm->state) {
             case PowerOn: {
-                if (input(fsm, EndRightTerminateSensor, 0) == true)
+                fsm->state = Ss;
+                break;
+            }
+            case Ss: {
+                if (input(fsm, EndRightTerminateSensor, 0) == true) {
+                    fsm_reset_signal(fsm, DoStepRight, 0);
                     fsm->state = S0;
+                } else {
+                    fsm_signal(fsm, DoStepRight, 0);
+                }
                 break;
             }
             case S0: {
@@ -242,8 +254,8 @@ void fsm_tick(struct FSM *fsm) {
             print_input(fsm, stdout);
             fprintf(stdout, "|");
             print_output(fsm, stdout);
-            fprintf(stdout, "| cs: ");
-            print_state(stdout, fsm->state);
+            fprintf(stdout, "| ");
+            print_state(stdout, fsm);
             fprintf(stdout, "\n");
             fflush(stdout);
         }
@@ -276,42 +288,50 @@ void fsm_destroy(struct FSM **fsm) {
     }
 }
 
-void print_state(FILE *fd, enum State state) {
+void print_state(FILE *fd, struct FSM *fsm) {
+    static char combine_text[256];
     char *text = 0;
     if (fd == 0) {
         fd = stdout;
     }
 
-    switch (state) {
+    switch (fsm->state) {
         case PowerOn:
-            text = "PowerOn";
+            text = "Включение питания";
             break;
         case PowerOff:
-            text = "PowerOff";
+            text = "Выключение питания";
             break;
         case S0:
             text = "Начало малого цикла";
             break;
         case S1:
-            text = "Исполнение малого цикла";
+            sprintf(combine_text, "Исполнение малого цикла [%d]", fsm->little_sequence_count);
+            text = combine_text;
             break;
         case S2:
-            text = "Позиционирование";
+            sprintf(combine_text, "Позиционирование [%d]", fsm->little_sequence_count);
+            text = combine_text;
             break;
         case S3:
-            text = "Открытие заслонки";
+            sprintf(combine_text, "Открытие заслонки [%d]", fsm->little_sequence_count);
+            text = combine_text;
             break;
         case S4:
             text = "Наполнение";
             break;
         case S5:
-            text = "Закрытие заслонки";
+            sprintf(combine_text, "Закрытие заслонки [%d]", fsm->little_sequence_count);
+            text = combine_text;
             break;
         case S6:
             text = "Завершение малого цикла";
             break;
         case Sc:
-            text = "Sc";
+            text = "Проверка перехода в большой цикл";
+            break;
+        case Ss:
+            text = "Поиск начального положения";
             break;
         default:
             text = "Unknown";
