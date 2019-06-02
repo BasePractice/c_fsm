@@ -174,7 +174,10 @@ void fsm_tick(struct FSM *fsm) {
                 break;
             }
             case S1: {
-                if (input(fsm, DoLittleCircle, 0) == true) {
+                bool r = memory_get_bit(
+                        (uint8_t *)&fsm->sequence[fsm->big_sequence_count],
+                        fsm->little_sequence_count);
+                if (r) {
                     fsm->state = S2;
                 } else {
                     fsm->state = Sc;
