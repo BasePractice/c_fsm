@@ -61,8 +61,11 @@ inline void memory_reset_bit(uint8_t *mem, const uint8_t bit) {
 #endif
 
 inline void fsm_signal(struct FSM *fsm, enum Signal signal, uint8_t count);
+
 inline void fsm_reset_signal(struct FSM *fsm, enum Signal signal, uint8_t count);
+
 bool output(struct FSM *fsm, enum Signal in, uint8_t count);
+
 void print_output(struct FSM *fsm, FILE *fd);
 
 enum Input {
@@ -175,7 +178,7 @@ void fsm_tick(struct FSM *fsm) {
             }
             case S1: {
                 bool r = memory_get_bit(
-                        (uint8_t *)&fsm->sequence[fsm->big_sequence_count],
+                        (uint8_t *) &fsm->sequence[fsm->big_sequence_count],
                         fsm->little_sequence_count);
                 if (r) {
                     fsm->state = S2;
@@ -186,7 +189,7 @@ void fsm_tick(struct FSM *fsm) {
                 }
                 break;
             }
-            /* Двигаемся налево пока не придем к нужному нам датчику */
+                /* Двигаемся налево пока не придем к нужному нам датчику */
             case S2: {
                 if (input(fsm, PositionSensor, fsm->little_sequence_count) == true) {
                     fsm->state = S3;
@@ -197,7 +200,7 @@ void fsm_tick(struct FSM *fsm) {
                 }
                 break;
             }
-            /* Смотрим когда у нас откроется залонка */
+                /* Смотрим когда у нас откроется залонка */
             case S3: {
                 if (input(fsm, OpenGateSensor, fsm->little_sequence_count) == true) {
                     fsm_reset_signal(fsm, OpenGate, fsm->little_sequence_count);
@@ -206,7 +209,7 @@ void fsm_tick(struct FSM *fsm) {
                 }
                 break;
             }
-            /* Ожидает когда сработает таймер */
+                /* Ожидает когда сработает таймер */
             case S4: {
                 if (input(fsm, TimerClockOverflow, fsm->little_sequence_count) == true) {
                     fsm_reset_signal(fsm, ResetTimer, fsm->little_sequence_count);
@@ -215,7 +218,7 @@ void fsm_tick(struct FSM *fsm) {
                 }
                 break;
             }
-            /* Закрытие залонки */
+                /* Закрытие залонки */
             case S5: {
                 if (input(fsm, OpenGateSensor, fsm->little_sequence_count) == false) {
                     fsm_reset_signal(fsm, OpenGate, fsm->little_sequence_count);
@@ -223,7 +226,7 @@ void fsm_tick(struct FSM *fsm) {
                 }
                 break;
             }
-            /* Завершение малого цикла */
+                /* Завершение малого цикла */
             case S6: {
                 fsm->state = Sc;
                 fsm_signal(fsm, EndLittleSequence, 0);
