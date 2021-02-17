@@ -181,5 +181,6 @@ int main() {
         }
         ++steps;
     }
+    fprintf(stdout, "Всего шагов: %d\n", steps);
     return 0;
 }
