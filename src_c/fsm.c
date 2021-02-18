@@ -1,6 +1,5 @@
 #include <stdlib.h>
-#include <memory.h>
-#include <string.h>
+#include <stdarg.h>
 #include "fsm.h"
 
 struct FSM;
@@ -17,7 +16,7 @@ enum State {
     PowerOff
 };
 
-static void print_state(FILE *fd, struct FSM *fsm);
+static void print_state(struct FSM *fsm);
 
 enum Signal {
     TurnStepLeft = 0,                  // Один шаг склонения контейнера влево
@@ -66,7 +65,7 @@ inline void fsm_reset_signal(struct FSM *fsm, enum Signal signal, uint8_t count)
 
 bool output(struct FSM *fsm, enum Signal in, uint8_t count);
 
-void print_output(struct FSM *fsm, FILE *fd);
+void print_output(struct FSM *fsm);
 
 enum Input {
     DeviceRunning = 0,                 // Взодной сигнал работы устройства
@@ -112,7 +111,7 @@ bool input(struct FSM *fsm, enum Input in, uint8_t count);
 
 bool read_input(struct FSM *fsm);
 
-void print_input(struct FSM *fsm, FILE *fd);
+void print_input(struct FSM *fsm);
 
 struct FSM {
     FILE *fd;                          // Дескриптор открытого фала для чтения последовательности выходов для симуляции процесса работы автомата
@@ -129,7 +128,28 @@ struct FSM {
     // Регистры состояний
     uint64_t input;
     uint64_t output;
+
+    void (*print_std)(const char *format, ...);
+    void (*print_err)(const char *format, ...);
 };
+
+static void fsm_default_print_std(const char *format, ...) {
+    va_list args;
+
+    va_start(args, format);
+    vfprintf(stdout, format, args);
+    va_end(args);
+    fflush(stdout);
+}
+
+static void fsm_default_print_err(const char *format, ...) {
+    va_list args;
+
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fflush(stderr);
+}
 
 void read_sequence(uint8_t sequence[4], uint32_t input) {
     sequence[0] = sequence[1] = sequence[2] = sequence[3] = 0;
@@ -148,6 +168,8 @@ struct FSM *fsm_create(char *filename, uint32_t sequence, bool debug) {
     fsm->fd = fopen(filename, "r");
     fsm->state = PowerOn;
     fsm->debug = debug;
+    fsm->print_std = fsm_default_print_std;
+    fsm->print_err = fsm_default_print_err;
     read_sequence(fsm->sequence, sequence);
     return fsm;
 }
@@ -256,14 +278,13 @@ void fsm_tick(struct FSM *fsm) {
         }
         //
         if (fsm->debug) {
-            fprintf(stdout, "[%04d] ", fsm->tick);
-            print_input(fsm, stdout);
-            fprintf(stdout, "|");
-            print_output(fsm, stdout);
-            fprintf(stdout, "| ");
-            print_state(stdout, fsm);
-            fprintf(stdout, "\n");
-            fflush(stdout);
+            (*fsm->print_std)("[%04d] ", fsm->tick);
+            print_input(fsm);
+            (*fsm->print_std)("|");
+            print_output(fsm);
+            (*fsm->print_std)("| ");
+            print_state(fsm);
+            (*fsm->print_std)("\n");
         }
     }
 }
@@ -294,12 +315,9 @@ void fsm_destroy(struct FSM **fsm) {
     }
 }
 
-void print_state(FILE *fd, struct FSM *fsm) {
+void print_state(struct FSM *fsm) {
     static char combine_text[256];
-    char *text = 0;
-    if (fd == 0) {
-        fd = stdout;
-    }
+    char *text;
 
     switch (fsm->state) {
         case PowerOn:
@@ -345,7 +363,7 @@ void print_state(FILE *fd, struct FSM *fsm) {
     }
 
     if (text != 0) {
-        fprintf(fd, "%s", text);
+        (*fsm->print_std)("%s", text);
     }
 }
 
@@ -376,30 +394,30 @@ bool input(struct FSM *fsm, enum Input in, uint8_t count) {
 bool read_input(struct FSM *fsm) {
     if (fsm != 0 && fsm->fd != 0) {
         if (feof(fsm->fd) == 0) {
-            int read = 0;
+            int read;
             int i = 0;
 
             fsm->input = 0L;
             while (feof(fsm->fd) == 0 && i < End_InputIndicator) {
                 read = fgetc(fsm->fd);
-                if (read == '#') {
+                if ('#' == read) {
                     while (feof(fsm->fd) == 0 && fgetc(fsm->fd) != '\n');
                     continue;
-                } else if (read == '1') {
+                } else if ('1' == read) {
                     memory_set_bit((uint8_t *) &fsm->input, i);
                     i++;
-                } else if (read == '0') {
+                } else if ('0' == read) {
                     i++;
-                } else if (read == ' ' || read == '\r' || read == '\n') {
+                } else if (' ' == read || '\r' == read || '\n' == read) {
                     continue;
                 } else {
-                    fprintf(stderr, "Ошибка последовательности\n");
+                    (*fsm->print_err)("Ошибка последовательности\n");
                     return false;
                 }
             }
             read = fgetc(fsm->fd);
             if (read != '\n' && read != EOF) {
-                fprintf(stderr, "Ошибка последовательности. Слишком большая\n");
+                (*fsm->print_err)("Ошибка последовательности. Слишком большая\n");
             }
             return true;
         }
@@ -407,12 +425,11 @@ bool read_input(struct FSM *fsm) {
     return false;
 }
 
-void print_input(struct FSM *fsm, FILE *fd) {
+void print_input(struct FSM *fsm) {
     int i;
     for (i = 0; i < End_InputIndicator; ++i) {
-        fprintf(fd, "%s", input(fsm, i, 0) == true ? "1" : "0");
+        (*fsm->print_std)("%s", input(fsm, i, 0) == true ? "1" : "0");
     }
-    fflush(fd);
 }
 
 bool output(struct FSM *fsm, enum Signal in, uint8_t count) {
@@ -423,10 +440,9 @@ bool output(struct FSM *fsm, enum Signal in, uint8_t count) {
     }
 }
 
-void print_output(struct FSM *fsm, FILE *fd) {
+void print_output(struct FSM *fsm) {
     int i;
     for (i = 0; i < End_OutputIndicator; ++i) {
-        fprintf(fd, "%s", output(fsm, i, 0) == true ? "1" : "0");
+        (*fsm->print_std)("%s", output(fsm, i, 0) == true ? "1" : "0");
     }
-    fflush(fd);
 }

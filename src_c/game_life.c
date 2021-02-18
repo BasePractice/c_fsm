@@ -76,21 +76,21 @@ static void print_world(struct World *w) {
     fflush(w->output);
 }
 
-static int around_the_cell(struct World *w, struct Cell *cellule, struct Cell ***result) {
+static int around_the_cell(struct World *w, struct Cell *cell, struct Cell ***result) {
     static struct Cell *not_thread_safe[8];
     int ret = 0;
     int ity;
     int itx;
-    int iy;
-    int ix;
+    size_t iy;
+    size_t ix;
 
 
     (*result) = not_thread_safe;
-    for (ity = cellule->y - 1; ity <= cellule->y + 1; ++ity) {
-        for (itx = cellule->x - 1; itx <= cellule->x + 1; ++itx) {
+    for (ity = cell->y - 1; ity <= cell->y + 1; ++ity) {
+        for (itx = cell->x - 1; itx <= cell->x + 1; ++itx) {
             iy = ity;
             ix = itx;
-            if (iy == cellule->y && ix == cellule->x)
+            if (iy == cell->y && ix == cell->x)
                 continue;
 
             if (iy < 0) {
@@ -112,7 +112,7 @@ static int around_the_cell(struct World *w, struct Cell *cellule, struct Cell **
     return ret;
 }
 
-static inline void do_cellule_automate(struct Cell *c, int d) {
+static inline void do_cell_automate(struct Cell *c, int d) {
     if (c->previous_state == DEAD && d == 3) {
         c->current_state = ALIVE;
     } else {
@@ -141,7 +141,7 @@ static void regenerate_world(struct World *w) {
                 }
             }
 
-            do_cellule_automate(&w->cells[i][k], alive);
+            do_cell_automate(&w->cells[i][k], alive);
         }
     }
 }
