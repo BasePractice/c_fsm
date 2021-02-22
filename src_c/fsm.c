@@ -130,6 +130,7 @@ struct FSM {
     uint64_t output;
 
     void (*print_std)(const char *format, ...);
+
     void (*print_err)(const char *format, ...);
 };
 
