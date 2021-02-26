@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "inserting_fsm.h"
+#include "fsm_insert.h"
 
 int main(int argc, char **argv) {
     struct InsertingEngine engine = {INSERTING_A};

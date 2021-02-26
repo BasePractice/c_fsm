@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
-#include "fsm.h"
+#include "fsm_bulk.h"
 
 struct FSM;
 

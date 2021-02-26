@@ -1,4 +1,4 @@
-#include "delay_fsm.h"
+#include "fsm_delay.h"
 
 enum InsertingEvent delay_engine(struct InsertingEngine *engine, enum DelayInputSymbol symbol) {
     switch (engine->state) {

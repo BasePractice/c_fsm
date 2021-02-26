@@ -217,7 +217,7 @@ static void poll_world(struct World *w) {
 int main() {
     struct World w;
 
-    init_world(&w, 80, 25, "complete.txt");
+    init_world(&w, 10, 10, "complete.txt");
     while (w.running) {
         poll_world(&w);
     }

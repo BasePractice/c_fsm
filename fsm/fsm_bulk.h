@@ -1,5 +1,5 @@
-#ifndef C_FSM_FSM_H
-#define C_FSM_FSM_H
+#ifndef C_FSM_FSM_BULK_H
+#define C_FSM_FSM_BULK_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -30,4 +30,4 @@ void fsm_destroy(struct FSM **fsm);
 }
 #endif
 
-#endif //C_FSM_FSM_H
+#endif //C_FSM_FSM_BULK_H

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "delay_fsm.h"
+#include "fsm_delay.h"
 
 int main(int argc, char **argv) {
     char  *sequence;

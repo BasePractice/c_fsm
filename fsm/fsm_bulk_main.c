@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "fsm.h"
+#include "fsm_bulk.h"
 
 static int test() {
     uint8_t sequence[4] = {0, 0, 0, 0};
@@ -22,7 +22,7 @@ static int test() {
 }
 
 int main(int argc, char **argv) {
-    struct FSM *fsm = fsm_create("simulate.input.t", 5151, true);
+    struct FSM *fsm = fsm_create("simulate.bulk.t", 5151, true);
     do {
         fsm_update(fsm);
         fsm_tick(fsm);
