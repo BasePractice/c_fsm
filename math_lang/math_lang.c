@@ -141,7 +141,7 @@ inline static bool lexer_symbol_parse_numeric(struct LexerContext *ctx, struct L
             continue;
         if (lexer_symbol_is_dot(ctx)) {
             if (tok->type == TokenReal) {
-                tok->error = "Duplicate dot present on input sequence";
+                tok->error = "Duplicate dot present on input sequences";
                 ret = false;
                 break;
             }

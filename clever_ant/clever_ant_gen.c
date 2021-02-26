@@ -4,53 +4,9 @@
 #include <stdbool.h>
 #include <string.h>
 #include <assert.h>
+#include "ant.h"
+#include "clever_ant_gen.h"
 
-#define SQUARE_SIZE 32
-
-#define SQUARE_EMPTY 0
-#define SQUARE_APPLE 1
-#define SQUARE_PATH  2
-
-#define DIRECT_UP      1
-#define DIRECT_RIGHT   2
-#define DIRECT_BOTTOM  3
-#define DIRECT_LEFT    4
-
-static const uint8_t APPLES = 89;
-static const uint8_t TORUS[SQUARE_SIZE][SQUARE_SIZE] = {
-        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 00
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 01
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 02
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 03
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 04
-        {1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 1, 1}, // 05
-        {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, // 06
-        {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, // 07
-        {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 2, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, // 08
-        {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, // 09
-        {0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0}, // 10
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 2, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0}, // 11
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 1, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 12
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 13
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 14
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 1, 2, 2, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 15
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 16
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 17
-        {0, 0, 0, 0, 0, 0, 0, 2, 1, 2, 2, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 18
-        {0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 19
-        {0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 20
-        {0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 21
-        {0, 0, 0, 0, 2, 1, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 22
-        {0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 23
-        {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 24
-        {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 25
-        {0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 26
-        {0, 0, 0, 0, 1, 2, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 27
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 28
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 29
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 30
-        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}  // 31
-};
 static uint64_t generation = 0;
 
 /**
@@ -86,6 +42,7 @@ struct AntContext {
     uint8_t torus_size;
 
     char *fsm_sequence;
+    bool  output;
 };
 
 static uint32_t *sequence_add(uint32_t *sequence, size_t sequence_size, uint32_t value) {
@@ -108,9 +65,11 @@ static struct StateSerialize *sequence_parse(const char *sequence, size_t *len) 
     (*len) = 0;
     for (i = 0; i < size; ++i) {
         if ('.' == sequence[i] || ':' == sequence[i]) {
-            value[i] = 0;
-            result = sequence_add(result, result_size, strtol(value, 0, 10));
+            value[k] = 0;
+            long v = strtol(value, 0, 10);
+            result = sequence_add(result, result_size, v);
             result_size++;
+            memset(value, 0, k);
             k = 0;
             if (':' == sequence[i]) {
                 (*len)++;
@@ -200,7 +159,27 @@ static void context_next(struct AntContext *ctx, uint64_t apples) {
     ctx->fsm_sequence = 0;
 }
 
-static void context_exec(struct AntContext *ctx, uint32_t exec) {
+char *context_get_do_name(int exec) {
+    switch (exec) {
+        case 0: {
+            return "вправо";
+        }
+        case 1: {
+            return "влево";
+        }
+        case 2: {
+            return "вперед";
+        }
+        case 3: {
+            return "вперед и поедание";
+        }
+        default: {
+            return "неизвестное";
+        }
+    }
+}
+
+static void context_exec(struct AntContext *ctx, int exec) {
     switch (exec) {
         case 0: {
             turn_right(ctx);
@@ -247,8 +226,10 @@ context_run(struct AntContext *ctx, const char *sequence, const uint64_t complet
             ctx->torus[i][k] = torus[i][k];
         }
     }
-    fprintf(stdout, "[%05llu] Последовательность: %s\n", ctx->generation, ctx->fsm_sequence);
-    fflush(stdout);
+    if (ctx->output) {
+        fprintf(stdout, "[%05llu] Последовательность: %s\n", ctx->generation, ctx->fsm_sequence);
+        fflush(stdout);
+    }
     while (ctx->apples > 0 && ctx->steps < complete_steps) {
         struct StateSerialize *s = &seq[ctx->ant_state];
         if (has_food(ctx)) {
@@ -261,9 +242,23 @@ context_run(struct AntContext *ctx, const char *sequence, const uint64_t complet
         ++ctx->steps;
     }
     free(seq);
-    fprintf(stdout, "[%05llu] Всего шагов       : %llu\n", ctx->generation, ctx->steps);
-    fflush(stdout);
+    if (ctx->output) {
+        fprintf(stdout, "[%05llu] Всего шагов       : %llu\n", ctx->generation, ctx->steps);
+        fflush(stdout);
+    }
     return ctx->steps;
+}
+
+uint64_t
+context_next_run(const char *sequence) {
+    uint64_t result;
+    struct AntContext ctx = {0};
+
+    ctx.output = false;
+    context_next(&ctx, APPLES);
+    result = context_run(&ctx, sequence, 2000, TORUS);
+    context_destroy(&ctx);
+    return result;
 }
 
 /**
@@ -279,11 +274,7 @@ context_run(struct AntContext *ctx, const char *sequence, const uint64_t complet
  */
 
 /*http://www.demo.cs.brandeis.edu/papers/ep93.pdf */
-int main() {
-    struct AntContext ctx = {0};
-
-    context_next(&ctx, APPLES);
-    context_run(&ctx, "3.0.0.1:3.0.0.2:3.0.0.3:3.0.0.4:3.0.2.0", 2000, TORUS);
-    context_destroy(&ctx);
-    return EXIT_SUCCESS;
-}
+//int main() {
+//    context_next_run("3.0.0.1:3.0.0.2:3.0.0.3:3.0.0.4:3.0.2.0");
+//    return EXIT_SUCCESS;
+//}
