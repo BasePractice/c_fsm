@@ -1,2 +1,4 @@
 ﻿.build*
 .idea
+_minted-*
+out

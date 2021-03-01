@@ -471,7 +471,7 @@ decl_gettype(struct lexer *lexer, struct context *ctx, int *pointer, int *isunsi
         lexer_next(lexer);
     }
     if (!context_hastype(ctx, lexer->buf)) {
-        fprintf(stderr, "Type %s not declared\n", lexer->buf);
+        fprintf(stderr, "Type \"%s\" not declared\n", lexer->buf);
         return NULL;
     }
     type = lexer_strdup(lexer);
