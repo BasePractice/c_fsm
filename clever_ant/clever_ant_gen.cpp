@@ -163,7 +163,7 @@ static void print_plant_uml(const std::string &origin) {
 /*http://www.demo.cs.brandeis.edu/papers/ep93.pdf */
 int main() {
     const auto &base = Mutate::parse(
-            "3.0.0.1:3.13.0.2:3.0.0.3:3.15.0.12:3.2.3.7:3.2.2.13:3.1.2.8:3.8.0.11:3.7.1.17:3.10.3.2:3.5.1.2:3.5.1.6:3.6.2.0:3.7.2.6:3.3.0.7:3.15.2.4:3.3.3.3:3.13.0.12-185");
+            "3.0.0.1:3.4.0.2:3.0.0.3:3.4.0.4:3.0.2.0-275");
     int max = base.steps, calculate = max, states = base.states;
     std::string origin = base.sequence;
 
