@@ -2,12 +2,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <string.h>
 #include <assert.h>
 #include "ant.h"
+#include "sequence.h"
 #include "clever_ant_gen.h"
-
-static uint64_t generation = 0;
 
 /**
  * 1. Для предоставления возможности генерировать(изменять) последовательность действий в состоянии, представим
@@ -18,74 +16,6 @@ static uint64_t generation = 0;
  *
  * 2. Действия: 0 - поворот направо, 1 - поворо налево, 2 - шаг вперед, 3 - шаг вперед и съедание яблока
  */
-#pragma push(pack)
-#pragma pack(1)
-struct StateSerialize {
-    int eat_do;
-    int eat_next;
-    int emp_do;
-    int emp_next;
-};
-#pragma pop(pack)
-
-
-struct AntContext {
-    uint64_t generation;
-
-    int8_t ant_x;
-    int8_t ant_y;
-    uint8_t ant_state;
-    uint8_t ant_direct;
-    uint64_t steps;
-    uint16_t apples;
-    uint8_t torus[SQUARE_SIZE][SQUARE_SIZE];
-    uint8_t torus_size;
-
-    char *fsm_sequence;
-    bool  output;
-};
-
-static uint32_t *sequence_add(uint32_t *sequence, size_t sequence_size, uint32_t value) {
-    if (0 == sequence) {
-        sequence = malloc(sizeof(uint32_t));
-        sequence[0] = value;
-    } else {
-        sequence = realloc(sequence, (sequence_size + 1) * sizeof(uint32_t));
-        sequence[sequence_size] = value;
-    }
-    return sequence;
-}
-
-static struct StateSerialize *sequence_parse(const char *sequence, size_t *len) {
-    uint32_t *result = 0;
-    size_t    result_size = 0;
-    char value[256];
-    size_t size = strlen(sequence), i, k = 0;
-
-    (*len) = 0;
-    for (i = 0; i < size; ++i) {
-        if ('.' == sequence[i] || ':' == sequence[i]) {
-            value[k] = 0;
-            long v = strtol(value, 0, 10);
-            result = sequence_add(result, result_size, v);
-            result_size++;
-            memset(value, 0, k);
-            k = 0;
-            if (':' == sequence[i]) {
-                (*len)++;
-            }
-            continue;
-        }
-        value[k++] = sequence[i];
-    }
-
-    if (i > 0) {
-        value[i] = 0;
-        result = sequence_add(result, result_size, strtol(value, 0, 10));
-        (*len)++;
-    }
-    return (struct StateSerialize *)result;
-}
 
 static inline void eat(struct AntContext *ctx) {
     if (ctx->torus[ctx->ant_x][ctx->ant_y] == SQUARE_APPLE) {
@@ -148,33 +78,22 @@ static inline bool has_food(struct AntContext *ctx) {
     return false;
 }
 
-static void context_next(struct AntContext *ctx, uint64_t apples) {
-    ctx->generation = generation++;
+void context_next(struct AntContext *ctx, struct Sequence *sequence, uint64_t apples,
+                  const uint8_t torus[SQUARE_SIZE][SQUARE_SIZE]) {
+    size_t i, k;
+
+    ctx->generation++;
     ctx->ant_x = 0;
     ctx->ant_y = 0;
     ctx->ant_state = 0;
     ctx->ant_direct = DIRECT_RIGHT;
     ctx->steps = 0;
     ctx->apples = apples;
-    ctx->fsm_sequence = 0;
-}
+    ctx->sequence = sequence;
 
-char *context_get_do_name(int exec) {
-    switch (exec) {
-        case 0: {
-            return "вправо";
-        }
-        case 1: {
-            return "влево";
-        }
-        case 2: {
-            return "вперед";
-        }
-        case 3: {
-            return "вперед и поедание";
-        }
-        default: {
-            return "неизвестное";
+    for (i = 0; i < SQUARE_SIZE; ++i) {
+        for (k = 0; k < SQUARE_SIZE; ++k) {
+            ctx->torus[i][k] = torus[i][k];
         }
     }
 }
@@ -205,60 +124,70 @@ static void context_exec(struct AntContext *ctx, int exec) {
     }
 }
 
-static inline void context_destroy(struct AntContext *ctx) {
-    if (0 != ctx && 0 != ctx->fsm_sequence) {
-        free(ctx->fsm_sequence);
+void context_destroy(struct AntContext *ctx) {
+    if (0 != ctx && 0 != ctx->sequence) {
+        sequence_destroy(ctx->sequence);
     }
 }
 
-static uint64_t
-context_run(struct AntContext *ctx, const char *sequence, const uint64_t complete_steps,
-            const uint8_t torus[SQUARE_SIZE][SQUARE_SIZE]) {
-    uint64_t i, k;
-    struct StateSerialize *seq;
-    size_t seq_size = 0;
+uint64_t
+context_run(struct AntContext *ctx, const uint64_t complete_steps) {
 
-    seq = sequence_parse(sequence, &seq_size);
-    ctx->fsm_sequence = strdup(sequence);
     ctx->torus_size = SQUARE_SIZE;
-    for (i = 0; i < SQUARE_SIZE; ++i) {
-        for (k = 0; k < SQUARE_SIZE; ++k) {
-            ctx->torus[i][k] = torus[i][k];
-        }
-    }
-    if (ctx->output) {
-        fprintf(stdout, "[%05llu] Последовательность: %s\n", ctx->generation, ctx->fsm_sequence);
-        fflush(stdout);
-    }
+
     while (ctx->apples > 0 && ctx->steps < complete_steps) {
-        struct StateSerialize *s = &seq[ctx->ant_state];
+        struct Node *n = &ctx->sequence->node[ctx->ant_state];
         if (has_food(ctx)) {
-            context_exec(ctx, s->eat_do);
-            ctx->ant_state = s->eat_next;
+            context_exec(ctx, n->does[StepEatDo]);
+            ctx->ant_state = n->does[StepEatNext];
         } else {
-            context_exec(ctx, s->emp_do);
-            ctx->ant_state = s->emp_next;
+            context_exec(ctx, n->does[StepNotDo]);
+            ctx->ant_state = n->does[StepNotNext];
         }
         ++ctx->steps;
-    }
-    free(seq);
-    if (ctx->output) {
-        fprintf(stdout, "[%05llu] Всего шагов       : %llu\n", ctx->generation, ctx->steps);
-        fflush(stdout);
     }
     return ctx->steps;
 }
 
-uint64_t
-context_next_run(const char *sequence) {
-    uint64_t result;
+void context_circle_sequence(struct Sequence *origin,
+                             enum CircleStep (*next_cb)(struct AntContext *ctx, void *userdata),
+                             void *userdata) {
     struct AntContext ctx = {0};
+    struct Sequence sequence = {0, 0};
+    struct Sequence best_sequence = {0, 0};
+    size_t c = 0;
+    enum CircleStep step = Next;
 
-    ctx.output = false;
-    context_next(&ctx, APPLES);
-    result = context_run(&ctx, sequence, 2000, TORUS);
+    sequence_clone(&sequence, origin);
+    sequence_clone(&best_sequence, origin);
+    while (step != Complete) {
+        context_next(&ctx, &sequence, APPLES, TORUS);
+        context_run(&ctx, 2000);
+        step = (*next_cb)(&ctx, userdata);
+        switch (step) {
+            default:
+            case Complete: {
+                continue;
+            }
+            case Best: {
+                sequence_clone(&best_sequence, &sequence);
+                c = 0;
+            }
+            case Next: {
+                if (c > sequence.node_size * 10000) {
+                    sequence_destroy(&sequence);
+                    sequence_clone(&sequence, &best_sequence);
+                    sequence_mutate(&sequence, MutateAppend);
+                    sequence_format(&sequence);
+                    c = 0;
+                }
+                sequence_mutate(&sequence, MutateEatNext | MutateNotNext | MutateNotDo);
+                ++c;
+                break;
+            }
+        }
+    }
     context_destroy(&ctx);
-    return result;
 }
 
 /**

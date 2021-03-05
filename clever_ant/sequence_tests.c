@@ -13,6 +13,13 @@ int main(int argc, char **argv) {
     sequence_create(&sequence, SEQUENCE);
     text = sequence_to_string(&sequence);
     eq = strcmp(text, SEQUENCE);
+    free(text);
+    sequence_uml_fd(stdout, &sequence);
+    sequence_format(&sequence);
+    sequence_uml_fd(stdout, &sequence);
+    text = sequence_to_string(&sequence);
+    fprintf(stdout, "Origin text : %s\n", SEQUENCE);
+    fprintf(stdout, "Format text : %s\n", text);
     sequence_destroy(&sequence);
     return eq == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
