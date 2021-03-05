@@ -37,7 +37,9 @@ enum CircleStep {
 };
 
 void context_circle_sequence(struct Sequence *sequence,
-                             enum CircleStep (*next_cb)(struct AntContext *ctx, void *userdata), void *userdata);
+                             int strategy,
+                             enum CircleStep (*next_cb)(struct AntContext *ctx, void *userdata),
+                             void *userdata);
 
 #if defined(__cplusplus)
 }

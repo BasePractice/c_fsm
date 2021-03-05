@@ -12,6 +12,7 @@ static struct Node *node_add(struct Node *node, size_t node_size, int id, int do
     node[node_size].id = id;
     node[node_size].links = 0;
     node[node_size].mutates = 0;
+    node[node_size].enters = 0;
     memcpy(&node[node_size].does, does, 4 * sizeof(int));
     return node;
 }
@@ -82,24 +83,50 @@ void sequence_clone(struct Sequence *target, const struct Sequence *source) {
     memcpy(target->node, source->node, sizeof(struct Node) * source->node_size);
 }
 
-void sequence_format(struct Sequence *sequence) {
+void sequence_format(struct Sequence *sequence, enum SequenceFormat format) {
     size_t i;
     struct Node *new_node = 0;
     size_t new_node_size = 0;
 
     if (0 == sequence->node)
         return;
-    for (i = 0; i < sequence->node_size; ++i) {
-        sequence->node[sequence->node[i].does[StepEatNext]].links++;
-        sequence->node[sequence->node[i].does[StepNotNext]].links++;
-    }
 
-    for (i = 0; i < sequence->node_size; ++i) {
-        if (0 == sequence->node[i].links) {
-            continue;
-        } else {
-            new_node = node_add(new_node, new_node_size++,
+    if (FormatEnters == format) {
+        for (i = 0; i < sequence->node_size; ++i) {
+            if (0 == sequence->node[i].enters) {
+                continue;
+            } else {
+                new_node = node_add(new_node, new_node_size,
+                                    sequence->node[i].id, sequence->node[i].does);
+                new_node[new_node_size].mutates = sequence->node[i].mutates;
+                new_node[new_node_size].enters = sequence->node[i].enters;
+                new_node_size++;
+            }
+        }
+    } else if (FormatLinks == format) {
+        for (i = 0; i < sequence->node_size; ++i) {
+            sequence->node[sequence->node[i].does[StepEatNext]].links++;
+            sequence->node[sequence->node[i].does[StepNotNext]].links++;
+        }
+
+        for (i = 0; i < sequence->node_size; ++i) {
+            if (0 == sequence->node[i].links) {
+                continue;
+            } else {
+                new_node = node_add(new_node, new_node_size,
+                                    sequence->node[i].id, sequence->node[i].does);
+                new_node[new_node_size].mutates = sequence->node[i].mutates;
+                new_node[new_node_size].enters = sequence->node[i].enters;
+                new_node_size++;
+            }
+        }
+    } else {
+        for (i = 0; i < sequence->node_size; ++i) {
+            new_node = node_add(new_node, new_node_size,
                                 sequence->node[i].id, sequence->node[i].does);
+            new_node[new_node_size].mutates = sequence->node[i].mutates;
+            new_node[new_node_size].enters = sequence->node[i].enters;
+            new_node_size++;
         }
     }
 
@@ -180,15 +207,72 @@ void sequence_uml_fd(FILE *fd, struct Sequence *sequence) {
     fprintf(fd, "%s", uml);
 }
 
+struct SortedNode {
+    int id;
+    int mutates;
+    int enters;
+};
+
+static int sorted_node_compare_mutates(const void *n1, const void *n2) {
+    if (((struct SortedNode *) n1)->mutates < ((struct SortedNode *) n2)->mutates) {
+        return 1;
+    } else if (((struct SortedNode *) n1)->mutates > ((struct SortedNode *) n2)->mutates) {
+        return -1;
+    }
+    return 0;
+}
+
+static int sorted_node_compare_enters(const void *n1, const void *n2) {
+    if (((struct SortedNode *) n1)->enters > ((struct SortedNode *) n2)->enters) {
+        return 1;
+    } else if (((struct SortedNode *) n1)->enters < ((struct SortedNode *) n2)->enters) {
+        return -1;
+    }
+    return 0;
+}
+
 void sequence_mutate(struct Sequence *sequence, int strategy) {
     int place = rand() % sequence->node_size + 0;
 
+    if ((strategy & MutateNotEnteredNode) == MutateNotEnteredNode) {
+        sequence_format(sequence, FormatEnters);
+        sequence_format(sequence, FormatLinks);
+        place = rand() % sequence->node_size + 0;
+    }
+    if ((strategy & MutateEvenDistribution) == MutateEvenDistribution ||
+        (strategy & MutateEvenNodeEnters) == MutateEvenNodeEnters) {
+        static struct SortedNode *sorted_node = 0;
+        static size_t sorted_node_size = 0, i;
+
+        if (0 == sorted_node) {
+            sorted_node_size = sequence->node_size;
+            sorted_node = malloc(sorted_node_size * sizeof(struct SortedNode));
+        } else if (sorted_node_size < sequence->node_size) {
+            sorted_node_size = sequence->node_size;
+            sorted_node = realloc(sorted_node, sorted_node_size * sizeof(struct SortedNode));
+        }
+        for (i = 0; i < sequence->node_size; ++i) {
+            sorted_node[i].mutates = sequence->node[i].mutates;
+            sorted_node[i].enters = sequence->node[i].enters;
+            sorted_node[i].id = sequence->node[i].id;
+        }
+
+        if ((strategy & MutateEvenDistribution) == MutateEvenDistribution) {
+            qsort(sorted_node, sorted_node_size, sizeof(struct SortedNode), sorted_node_compare_mutates);
+        } else if ((strategy & MutateEvenNodeEnters) == MutateEvenNodeEnters) {
+            qsort(sorted_node, sorted_node_size, sizeof(struct SortedNode), sorted_node_compare_enters);
+        }
+        place = sorted_node[rand() % 5].id; //Выбираем из первых 5
+    }
     if ((strategy & MutateEatDo) == MutateEatDo) {
         sequence->node[place].does[StepEatDo] = rand() % DO_SIZE - 0;
         sequence->node[place].mutates++;
     }
     if ((strategy & MutateEatNext) == MutateEatNext) {
         sequence->node[place].does[StepEatNext] = rand() % sequence->node_size - 0;
+        if (place == sequence->node[place].does[StepEatNext]) {
+            sequence->node[place].does[StepEatNext] = 0;
+        }
         sequence->node[place].mutates++;
     }
 
@@ -198,6 +282,9 @@ void sequence_mutate(struct Sequence *sequence, int strategy) {
     }
     if ((strategy & MutateNotNext) == MutateNotNext) {
         sequence->node[place].does[StepNotNext] = rand() % sequence->node_size - 0;
+        if (place == sequence->node[place].does[StepNotNext]) {
+            sequence->node[place].does[StepNotNext] = 0;
+        }
         sequence->node[place].mutates++;
     }
     if ((strategy & MutateAppend) == MutateAppend) {
@@ -210,5 +297,21 @@ void sequence_mutate(struct Sequence *sequence, int strategy) {
         sequence->node[sequence->node_size].does[StepNotDo] = rand() % DO_SIZE - 0;
         sequence->node[sequence->node_size - 1].does[StepNotNext] = sequence->node_size;
         sequence->node_size++;
+    }
+}
+
+void sequence_reset_enters(struct Sequence *sequence) {
+    size_t i;
+
+    for (i = 0; i < sequence->node_size; ++i) {
+        sequence->node[i].enters = 0;
+    }
+}
+
+void sequence_reset_mutates(struct Sequence *sequence) {
+    size_t i;
+
+    for (i = 0; i < sequence->node_size; ++i) {
+        sequence->node[i].mutates = 0;
     }
 }

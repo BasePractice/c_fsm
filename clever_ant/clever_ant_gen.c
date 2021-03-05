@@ -133,10 +133,11 @@ void context_destroy(struct AntContext *ctx) {
 uint64_t
 context_run(struct AntContext *ctx, const uint64_t complete_steps) {
 
+    sequence_reset_enters(ctx->sequence);
     ctx->torus_size = SQUARE_SIZE;
-
     while (ctx->apples > 0 && ctx->steps < complete_steps) {
         struct Node *n = &ctx->sequence->node[ctx->ant_state];
+        n->enters++;
         if (has_food(ctx)) {
             context_exec(ctx, n->does[StepEatDo]);
             ctx->ant_state = n->does[StepEatNext];
@@ -150,6 +151,7 @@ context_run(struct AntContext *ctx, const uint64_t complete_steps) {
 }
 
 void context_circle_sequence(struct Sequence *origin,
+                             int origin_strategy,
                              enum CircleStep (*next_cb)(struct AntContext *ctx, void *userdata),
                              void *userdata) {
     struct AntContext ctx = {0};
@@ -161,6 +163,8 @@ void context_circle_sequence(struct Sequence *origin,
     sequence_clone(&sequence, origin);
     sequence_clone(&best_sequence, origin);
     while (step != Complete) {
+        int strategy = origin_strategy;
+
         context_next(&ctx, &sequence, APPLES, TORUS);
         context_run(&ctx, 2000);
         step = (*next_cb)(&ctx, userdata);
@@ -174,14 +178,21 @@ void context_circle_sequence(struct Sequence *origin,
                 c = 0;
             }
             case Next: {
-                if (c > sequence.node_size * 10000) {
+                if (0 == c % 666) {
+                    strategy |= MutateEvenDistribution;
+                } else if (0 == c % 333) {
+                    strategy |= MutateEvenNodeEnters;
+                } /*else if (0 == c % 777) {
+                    strategy |= MutateNotEnteredNode;
+                } */else if (c > sequence.node_size * 10000) {
                     sequence_destroy(&sequence);
                     sequence_clone(&sequence, &best_sequence);
                     sequence_mutate(&sequence, MutateAppend);
-                    sequence_format(&sequence);
+                    sequence_reset_mutates(&sequence);
+                    sequence_format(&sequence, FormatLinks);
                     c = 0;
                 }
-                sequence_mutate(&sequence, MutateEatNext | MutateNotNext | MutateNotDo);
+                sequence_mutate(&sequence, strategy);
                 ++c;
                 break;
             }

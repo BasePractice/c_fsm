@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
     eq = strcmp(text, SEQUENCE);
     free(text);
     sequence_uml_fd(stdout, &sequence);
-    sequence_format(&sequence);
+    sequence_format(&sequence, FormatLinks);
     sequence_uml_fd(stdout, &sequence);
     text = sequence_to_string(&sequence);
     fprintf(stdout, "Origin text : %s\n", SEQUENCE);
