@@ -213,6 +213,8 @@ struct SortedNode {
     int enters;
 };
 
+static void sequence_mutate_item(const struct Sequence *sequence, int strategy, int place);
+
 static int sorted_node_compare_mutates(const void *n1, const void *n2) {
     if (((struct SortedNode *) n1)->mutates < ((struct SortedNode *) n2)->mutates) {
         return 1;
@@ -233,6 +235,18 @@ static int sorted_node_compare_enters(const void *n1, const void *n2) {
 
 void sequence_mutate(struct Sequence *sequence, int strategy) {
     int place = rand() % sequence->node_size + 0;
+
+    if ((strategy & MutateAppend) == MutateAppend) {
+        sequence->node = node_add(
+                sequence->node, sequence->node_size, sequence->node_size,
+                sequence->node[sequence->node_size - 1].does);
+        sequence->node[sequence->node_size].does[StepEatNext] = 0;
+        sequence->node[sequence->node_size].does[StepEatDo] = 3;
+        sequence->node[sequence->node_size].does[StepNotNext] = 0;
+        sequence->node[sequence->node_size].does[StepNotDo] = rand() % DO_SIZE - 0;
+        sequence->node[sequence->node_size - 1].does[StepNotNext] = sequence->node_size;
+        sequence->node_size++;
+    }
 
     if ((strategy & MutateNotEnteredNode) == MutateNotEnteredNode) {
         sequence_format(sequence, FormatEnters);
@@ -262,17 +276,30 @@ void sequence_mutate(struct Sequence *sequence, int strategy) {
         } else if ((strategy & MutateEvenNodeEnters) == MutateEvenNodeEnters) {
             qsort(sorted_node, sorted_node_size, sizeof(struct SortedNode), sorted_node_compare_enters);
         }
-        place = sorted_node[rand() % 5].id; //Выбираем из первых 5
+        place = sorted_node[rand() % (sequence->node_size / 2)].id; //Выбираем из первой половины
     }
+
+    if ((strategy & MutateAllElements) == MutateAllElements) {
+        size_t i;
+
+        for (i = 0; i < sequence->node_size; ++i) {
+            sequence_mutate_item(sequence, strategy, i);
+        }
+    } else {
+        sequence_mutate_item(sequence, strategy, place);
+    }
+}
+
+static void sequence_mutate_item(const struct Sequence *sequence, int strategy, int place) {
     if ((strategy & MutateEatDo) == MutateEatDo) {
         sequence->node[place].does[StepEatDo] = rand() % DO_SIZE - 0;
         sequence->node[place].mutates++;
     }
     if ((strategy & MutateEatNext) == MutateEatNext) {
-        sequence->node[place].does[StepEatNext] = rand() % sequence->node_size - 0;
-        if (place == sequence->node[place].does[StepEatNext]) {
-            sequence->node[place].does[StepEatNext] = 0;
-        }
+        do {
+            sequence->node[place].does[StepEatNext] = rand() % sequence->node_size - 0;
+        } while (place != sequence->node[place].does[StepEatNext] &&
+                 sequence->node[place].does[StepEatNext] != sequence->node[place].does[StepNotNext]);
         sequence->node[place].mutates++;
     }
 
@@ -281,22 +308,11 @@ void sequence_mutate(struct Sequence *sequence, int strategy) {
         sequence->node[place].mutates++;
     }
     if ((strategy & MutateNotNext) == MutateNotNext) {
-        sequence->node[place].does[StepNotNext] = rand() % sequence->node_size - 0;
-        if (place == sequence->node[place].does[StepNotNext]) {
-            sequence->node[place].does[StepNotNext] = 0;
-        }
+        do {
+            sequence->node[place].does[StepNotNext] = rand() % sequence->node_size - 0;
+        } while (place != sequence->node[place].does[StepNotNext] &&
+                 sequence->node[place].does[StepNotNext] != sequence->node[place].does[StepEatNext]);
         sequence->node[place].mutates++;
-    }
-    if ((strategy & MutateAppend) == MutateAppend) {
-        sequence->node = node_add(
-                sequence->node, sequence->node_size, sequence->node_size,
-                sequence->node[sequence->node_size - 1].does);
-        sequence->node[sequence->node_size].does[StepEatNext] = 0;
-        sequence->node[sequence->node_size].does[StepEatDo] = 3;
-        sequence->node[sequence->node_size].does[StepNotNext] = 0;
-        sequence->node[sequence->node_size].does[StepNotDo] = rand() % DO_SIZE - 0;
-        sequence->node[sequence->node_size - 1].does[StepNotNext] = sequence->node_size;
-        sequence->node_size++;
     }
 }
 

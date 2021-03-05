@@ -4,7 +4,7 @@ project(clever_ant C)
 set(CMAKE_C_STANDARD 90)
 set(CMAKE_CXX_STANDARD 20)
 
-include_directories(.)
+include_directories(. bloom)
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_executable(${PROJECT_NAME} clever_ant.c)

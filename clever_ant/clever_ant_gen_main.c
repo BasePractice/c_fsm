@@ -7,6 +7,7 @@
 /*http://www.demo.cs.brandeis.edu/papers/ep93.pdf */
 
 #define COND ctx->steps < best_steps
+//#define COND ctx->steps < 2000
 
 static enum CircleStep next_cb(struct AntContext *ctx, void *userdata) {
     static uint64_t best_steps = 2000;
@@ -15,7 +16,7 @@ static enum CircleStep next_cb(struct AntContext *ctx, void *userdata) {
     if (COND) {
         best_steps = ctx->steps;
 //        sequence_format(ctx->sequence, FormatEnters);
-//        sequence_format(ctx->sequence, FormatLinks);
+        sequence_format(ctx->sequence, FormatLinks);
         char *text = sequence_to_string(ctx->sequence);
         fprintf(stdout, "[%04llu] [%010llu gen] %s\n", best_steps, ctx->generation, text);
         for (i = 0; i < ctx->sequence->node_size; ++i) {
@@ -34,7 +35,7 @@ static enum CircleStep next_cb(struct AntContext *ctx, void *userdata) {
 
 int main(int argc, char **argv) {
     struct Sequence sequence = {0, 0};
-    int strategy = MutateEatNext | MutateNotNext | MutateNotDo;
+    int strategy = MutateEatNext | MutateNotNext | MutateNotDo | MutateAllElements;
 
     if (argc < 2) {
         fprintf(stderr, "Not input sequence\n");

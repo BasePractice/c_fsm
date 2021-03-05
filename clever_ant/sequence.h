@@ -55,6 +55,7 @@ enum MutateStrategy {
     MutateEvenDistribution = 0x0000000000000020,
     MutateEvenNodeEnters = 0x0000000000000040,
     MutateNotEnteredNode = 0x0000000000000080,
+    MutateAllElements = 0x0000000000000100,
 };
 
 void sequence_mutate(struct Sequence *sequence, int strategy);
