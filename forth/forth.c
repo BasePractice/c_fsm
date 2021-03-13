@@ -19,7 +19,7 @@ typedef u32                uptr;
 #elif defined(_M_X64)
 typedef u64                uptr;
 #else
-#error "Unsupported architecture"
+typedef u64                uptr;
 #endif
 
 
@@ -111,7 +111,7 @@ dict_add(struct Dict * dict, const char * const name, u32 address, u8 opcod) {
         it->next = (struct Entry *)calloc(1, sizeof(struct Entry));
         it = it->next;
     }
-    it->name = _strdup(name);
+    it->name = strdup(name);
     it->uptr = address;
     it->opcod = opcod;
 }
@@ -168,7 +168,7 @@ data_push_string(struct Fm *vm, char * const string) {
 
     if (index < 0) {
         index = vm->table.id++;
-        vm->table.string[index] = _strdup(string);
+        vm->table.string[index] = strdup(string);
     }
     vm->data[vm->pdata].flags = 0 | DATA_FLAG_STRING;
     vm->data[vm->pdata].paylod = (u32)index;
@@ -231,7 +231,7 @@ fm_run(struct Fm *vm, const unsigned int circles) {
             struct Data *d = data_pop(vm);
             ++vm->ip;
             if (d->flags & DATA_FLAG_INTEGER) {
-                fprintf(stdout, "%d", d->paylod);
+                fprintf(stdout, "%llu", d->paylod);
             } else {
                 fprintf(stdout, "%s", vm->table.string[d->paylod]);
             }

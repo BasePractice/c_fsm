@@ -257,6 +257,7 @@ void sequence_mutate(struct Sequence *sequence, int strategy) {
         (strategy & MutateEvenNodeEnters) == MutateEvenNodeEnters) {
         static struct SortedNode *sorted_node = 0;
         static size_t sorted_node_size = 0, i;
+        size_t div;
 
         if (0 == sorted_node) {
             sorted_node_size = sequence->node_size;
@@ -276,7 +277,10 @@ void sequence_mutate(struct Sequence *sequence, int strategy) {
         } else if ((strategy & MutateEvenNodeEnters) == MutateEvenNodeEnters) {
             qsort(sorted_node, sorted_node_size, sizeof(struct SortedNode), sorted_node_compare_enters);
         }
-        place = sorted_node[rand() % (sequence->node_size / 2)].id; //Выбираем из первой половины
+        div = sequence->node_size;
+        if (div < 2)
+            div = 2;
+        place = sorted_node[rand() % (div / 2)].id; //Выбираем из первой половины
     }
 
     if ((strategy & MutateAllElements) == MutateAllElements) {

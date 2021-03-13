@@ -15,3 +15,15 @@ add_library(${PROJECT_NAME}_gen_Library STATIC sequence.c sequence.h ant.c ant.h
 target_link_libraries(${PROJECT_NAME}_gen PUBLIC ${PROJECT_NAME}_gen_Library)
 target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}_gen_Library)
 target_link_libraries(${PROJECT_NAME}_seq_tests PUBLIC ${PROJECT_NAME}_gen_Library)
+
+if (GUI)
+    find_package(raylib 2.0 REQUIRED)
+    find_package(OpenGL REQUIRED)
+
+    include_directories(gui)
+
+    add_executable(${PROJECT_NAME}_gen_ui gui/clever_ant_gen_gui.c)
+    set_property(TARGET ${PROJECT_NAME}_gen_ui PROPERTY C_STANDARD 99)
+    target_link_libraries(${PROJECT_NAME}_gen_ui PUBLIC ${PROJECT_NAME}_gen_Library raylib)
+    target_compile_definitions(${PROJECT_NAME}_gen_ui PUBLIC -DPLATFORM_DESKTOP -DGL_SILENCE_DEPRECATION)
+endif ()

@@ -1,6 +1,7 @@
 #ifndef C_AUTOMATA_PROGRAMMING_PRACTICE_INSERTING_FSM_H
 #define C_AUTOMATA_PROGRAMMING_PRACTICE_INSERTING_FSM_H
 #include <stdbool.h>
+#include <stdlib.h>
 #include <stdint.h>
 
 #if defined(__cplusplus)

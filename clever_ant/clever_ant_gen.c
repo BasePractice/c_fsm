@@ -178,13 +178,13 @@ void context_circle_sequence(struct Sequence *origin,
                 c = 0;
             }
             case Next: {
-                /*if (0 == c % 666) {
+                if (0 == c % 666) {
                     strategy |= MutateEvenDistribution;
                 } else if (0 == c % 333) {
                     strategy |= MutateEvenNodeEnters;
                 } else if (0 == c % 777) {
                     strategy |= MutateNotEnteredNode;
-                } else*/
+                } else
                 if (c > sequence.node_size * 50000) {
 //                    sequence_destroy(&sequence);
 //                    sequence_clone(&sequence, &best_sequence);
