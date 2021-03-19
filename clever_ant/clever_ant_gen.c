@@ -25,6 +25,7 @@ static inline void eat(struct AntContext *ctx) {
 }
 
 static inline void step(struct AntContext *ctx) {
+    ctx->torus[ctx->ant_x][ctx->ant_y] = SQUARE_PATH;
     if (ctx->ant_direct == DIRECT_RIGHT) {
         ++ctx->ant_y;
         if (ctx->ant_y >= ctx->torus_size)
@@ -136,18 +137,23 @@ context_run(struct AntContext *ctx, const uint64_t complete_steps) {
     sequence_reset_enters(ctx->sequence);
     ctx->torus_size = SQUARE_SIZE;
     while (ctx->apples > 0 && ctx->steps < complete_steps) {
-        struct Node *n = &ctx->sequence->node[ctx->ant_state];
-        n->enters++;
-        if (has_food(ctx)) {
-            context_exec(ctx, n->does[StepEatDo]);
-            ctx->ant_state = n->does[StepEatNext];
-        } else {
-            context_exec(ctx, n->does[StepNotDo]);
-            ctx->ant_state = n->does[StepNotNext];
-        }
-        ++ctx->steps;
+        context_step(ctx);
     }
     return ctx->steps;
+}
+
+void
+context_step(struct AntContext *ctx) {
+    struct Node *n = &ctx->sequence->node[ctx->ant_state];
+    n->enters++;
+    if (has_food(ctx)) {
+        context_exec(ctx, n->does[StepEatDo]);
+        ctx->ant_state = n->does[StepEatNext];
+    } else {
+        context_exec(ctx, n->does[StepNotDo]);
+        ctx->ant_state = n->does[StepNotNext];
+    }
+    ++ctx->steps;
 }
 
 void context_circle_sequence(struct Sequence *origin,

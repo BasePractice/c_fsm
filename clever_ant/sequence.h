@@ -1,6 +1,7 @@
 #ifndef C_FSM_SEQUENCE_H
 #define C_FSM_SEQUENCE_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define DO_SIZE 4
@@ -24,6 +25,7 @@ struct Node {
     int does[4];
     int mutates;
     int enters;
+    bool mutate_enable;
 };
 
 void sequence_create(struct Sequence *sequence, const char *text);
@@ -35,6 +37,8 @@ enum SequenceFormat {
 };
 
 void sequence_format(struct Sequence *sequence, enum SequenceFormat format);
+
+char *node_to_string(struct Node *node);
 
 char *sequence_to_string(struct Sequence *sequence);
 

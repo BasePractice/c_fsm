@@ -1,33 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <time.h>
+#include "game_life.h"
 
-enum CellState {
-    ALIVE, DEAD
-};
-
-enum WorldState {
-    INIT, CALCULATE, VERIFY, COPY_PREVIOUS, QUIT
-};
-
-struct Cell {
-    int x;
-    int y;
-    enum CellState previous_state;
-    enum CellState current_state;
-};
-
-struct World {
-    struct Cell **cells;
-    size_t width;
-    size_t height;
-    enum WorldState state;
-    bool running;
-    FILE *output;
-};
-
-static void init_world(struct World *w, size_t width, size_t height, const char *filename) {
+void init_world(struct World *w, size_t width, size_t height, const char *filename) {
     size_t i;
 
     w->height = height;
@@ -39,7 +12,7 @@ static void init_world(struct World *w, size_t width, size_t height, const char 
     w->state = INIT;
     w->running = true;
     if (filename == 0 || (w->output = fopen(filename, "w")) == 0) {
-        w->output = stdout;
+        w->output = 0;
     }
 }
 
@@ -60,6 +33,9 @@ static void fill_world(struct World *w) {
 static void print_world(struct World *w) {
     size_t i;
     size_t k;
+
+    if (0 == w->output)
+        return;
 
     for (i = 0; i < w->height; ++i) {
         for (k = 0; k < w->width; ++k) {
@@ -170,7 +146,7 @@ static bool equals_world(struct World *w) {
     return true;
 }
 
-static void poll_world(struct World *w) {
+void poll_world(struct World *w) {
     switch (w->state) {
         case INIT: {
             fill_world(w);
@@ -200,26 +176,4 @@ static void poll_world(struct World *w) {
             break;
         }
     }
-}
-
-/*
-  Место действия этой игры — «вселенная» — это размеченная на клетки поверхность или плоскость — безграничная, ограниченная, или замкнутая (в пределе — бесконечная плоскость).
-    - Каждая клетка на этой поверхности может находиться в двух состояниях: быть «живой» (заполненной) или быть «мёртвой» (пустой). Клетка имеет восемь соседей, окружающих её.
-    - Распределение живых клеток в начале игры называется первым поколением. Каждое следующее поколение рассчитывается на основе предыдущего по таким правилам:
-      - в пустой (мёртвой) клетке, рядом с которой ровно три живые клетки, зарождается жизнь;
-      - если у живой клетки есть две или три живые соседки, то эта клетка продолжает жить; в противном случае, если соседей меньше двух или больше трёх, клетка умирает («от одиночества» или «от перенаселённости»)
-  Игра прекращается, если
-    - на поле не останется ни одной «живой» клетки
-    - конфигурация на очередном шаге в точности (без сдвигов и поворотов) повторит себя же на одном из более ранних шагов (складывается периодическая конфигурация)
-    - при очередном шаге ни одна из клеток не меняет своего состояния (складывается стабильная конфигурация; предыдущее правило, вырожденное до одного шага назад)
- */
-
-int main() {
-    struct World w;
-
-    init_world(&w, 10, 10, "complete.txt");
-    while (w.running) {
-        poll_world(&w);
-    }
-    return EXIT_SUCCESS;
 }

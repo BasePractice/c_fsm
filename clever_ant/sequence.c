@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include "sequence.h"
@@ -13,6 +14,7 @@ static struct Node *node_add(struct Node *node, size_t node_size, int id, int do
     node[node_size].links = 0;
     node[node_size].mutates = 0;
     node[node_size].enters = 0;
+    node[node_size].mutate_enable = true;
     memcpy(&node[node_size].does, does, 4 * sizeof(int));
     return node;
 }
@@ -100,6 +102,7 @@ void sequence_format(struct Sequence *sequence, enum SequenceFormat format) {
                                     sequence->node[i].id, sequence->node[i].does);
                 new_node[new_node_size].mutates = sequence->node[i].mutates;
                 new_node[new_node_size].enters = sequence->node[i].enters;
+                new_node[new_node_size].mutate_enable = sequence->node[i].mutate_enable;
                 new_node_size++;
             }
         }
@@ -117,6 +120,7 @@ void sequence_format(struct Sequence *sequence, enum SequenceFormat format) {
                                     sequence->node[i].id, sequence->node[i].does);
                 new_node[new_node_size].mutates = sequence->node[i].mutates;
                 new_node[new_node_size].enters = sequence->node[i].enters;
+                new_node[new_node_size].mutate_enable = sequence->node[i].mutate_enable;
                 new_node_size++;
             }
         }
@@ -126,6 +130,7 @@ void sequence_format(struct Sequence *sequence, enum SequenceFormat format) {
                                 sequence->node[i].id, sequence->node[i].does);
             new_node[new_node_size].mutates = sequence->node[i].mutates;
             new_node[new_node_size].enters = sequence->node[i].enters;
+            new_node[new_node_size].mutate_enable = sequence->node[i].mutate_enable;
             new_node_size++;
         }
     }
@@ -150,19 +155,25 @@ void sequence_format(struct Sequence *sequence, enum SequenceFormat format) {
 
 char *sequence_to_string(struct Sequence *sequence) {
     size_t i, text_size = 0;
-    char *text = 0, buf[20];
+    char *text = 0;
     if (0 != sequence->node) {
         for (i = 0; i < sequence->node_size; ++i) {
             if (i > 0) {
                 text = string_add(text, &text_size, ":");
             }
-            snprintf(buf, sizeof(buf), "%d.%d.%d.%d",
-                     sequence->node[i].does[StepEatDo], sequence->node[i].does[StepEatNext],
-                     sequence->node[i].does[StepNotDo], sequence->node[i].does[StepNotNext]);
-            text = string_add(text, &text_size, buf);
+            text = string_add(text, &text_size, node_to_string(&sequence->node[i]));
         }
     }
     return text;
+}
+
+char *node_to_string(struct Node *node) {
+    static char buf[20];
+
+    snprintf(buf, sizeof(buf), "%d.%d.%d.%d",
+             node->does[StepEatDo], node->does[StepEatNext],
+             node->does[StepNotDo], node->does[StepNotNext]);
+    return buf;
 }
 
 static inline char *sequence_get_does_name(int _do) {
@@ -233,9 +244,16 @@ static int sorted_node_compare_enters(const void *n1, const void *n2) {
     return 0;
 }
 
-void sequence_mutate(struct Sequence *sequence, int strategy) {
-    int place = rand() % sequence->node_size + 0;
+#define RANDOM(place) \
+    do {              \
+        (place) = rand() % sequence->node_size + 0; \
+    } while ( false == sequence->node[(place)].mutate_enable );
 
+
+void sequence_mutate(struct Sequence *sequence, int strategy) {
+    int place = 0;
+
+    RANDOM(place);
     if ((strategy & MutateAppend) == MutateAppend) {
         sequence->node = node_add(
                 sequence->node, sequence->node_size, sequence->node_size,
@@ -251,7 +269,7 @@ void sequence_mutate(struct Sequence *sequence, int strategy) {
     if ((strategy & MutateNotEnteredNode) == MutateNotEnteredNode) {
         sequence_format(sequence, FormatEnters);
         sequence_format(sequence, FormatLinks);
-        place = rand() % sequence->node_size + 0;
+        RANDOM(place);
     }
     if ((strategy & MutateEvenDistribution) == MutateEvenDistribution ||
         (strategy & MutateEvenNodeEnters) == MutateEvenNodeEnters) {
@@ -281,12 +299,17 @@ void sequence_mutate(struct Sequence *sequence, int strategy) {
         if (div < 2)
             div = 2;
         place = sorted_node[rand() % (div / 2)].id; //Выбираем из первой половины
+        if (false == sequence->node[(place)].mutate_enable) {
+            RANDOM(place);
+        }
     }
 
     if ((strategy & MutateAllElements) == MutateAllElements) {
         size_t i;
 
         for (i = 0; i < sequence->node_size; ++i) {
+            if (false == sequence->node[i].mutate_enable)
+                continue;
             sequence_mutate_item(sequence, strategy, i);
         }
     } else {

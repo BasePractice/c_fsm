@@ -30,6 +30,7 @@ void context_next(struct AntContext *ctx, struct Sequence *sequence, uint64_t ap
                   const uint8_t torus[SQUARE_SIZE][SQUARE_SIZE]);
 
 uint64_t context_run(struct AntContext *ctx, uint64_t complete_steps);
+void context_step(struct AntContext *ctx);
 
 
 enum CircleStep {

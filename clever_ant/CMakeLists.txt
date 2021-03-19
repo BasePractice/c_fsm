@@ -17,12 +17,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${PROJECT_NAME}_gen_Library)
 target_link_libraries(${PROJECT_NAME}_seq_tests PUBLIC ${PROJECT_NAME}_gen_Library)
 
 if (GUI)
-    if (UNIX)
-        find_package(raylib 2.0 REQUIRED /usr/local)
-    else ()
-        include_directories(D:/msys64/usr/local/include)
-        link_directories(D:/msys64/usr/local/lib)
-    endif ()
     include_directories(gui)
 
     add_executable(${PROJECT_NAME}_gen_ui gui/clever_ant_gen_gui.c)

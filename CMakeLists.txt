@@ -4,6 +4,17 @@ project(c_fsm C CXX)
 set(CMAKE_C_STANDARD 90)
 set(CMAKE_CXX_STANDARD 20)
 
+include_directories(include)
+
+if (GUI)
+    if (UNIX)
+        find_package(raylib 2.0 REQUIRED /usr/local)
+    else ()
+        include_directories(D:/msys64/usr/local/include)
+        link_directories(D:/msys64/usr/local/lib)
+    endif ()
+endif ()
+
 add_subdirectory(clever_ant)
 add_subdirectory(forth)
 add_subdirectory(fsm)
