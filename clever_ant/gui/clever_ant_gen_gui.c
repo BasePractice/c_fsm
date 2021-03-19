@@ -14,7 +14,7 @@
 #define PADDING_X   5
 #define PADDING_Y   0
 #define CONTROL_HEIGHT 20
-#define SEQ "3.0.0.1:3.13.0.2:3.0.0.3:3.15.0.12:3.2.3.7:3.2.2.13:3.9.2.19:3.8.0.11:3.7.1.17:3.10.3.2:3.8.3.4:3.5.1.6:3.6.2.0:3.7.2.6:3.3.0.7:3.15.2.4:3.3.3.3:3.13.0.12:3.18.0.2:3.9.1.17"
+#define SEQ "3.0.0.1:3.13.0.2:3.0.0.3:3.14.0.12:3.2.3.7:3.2.2.13:3.9.2.16:3.8.0.11:3.7.1.15:3.10.3.2:3.8.3.4:3.5.1.6:3.6.2.0:3.7.2.6:3.14.2.4:3.13.0.12:3.9.1.15"
 
 
 enum Engine {
@@ -25,7 +25,7 @@ enum Engine {
 };
 
 
-#define COND ctx->steps < best_steps
+#define COND ctx->steps <= steps
 //#define COND ctx->steps < 2000
 
 static void sequence_copy_mutate(struct Sequence *dst, struct Sequence *src) {
@@ -33,18 +33,20 @@ static void sequence_copy_mutate(struct Sequence *dst, struct Sequence *src) {
 
     for (d = 0; d < dst->node_size && d < src->node_size; ++d) {
         dst->node[d].mutate_enable = src->node[d].mutate_enable;
+        dst->node[d].mutates = src->node[d].mutates;
     }
 }
 
+
+static int steps = 315;
 static enum CircleStep next_cb(struct AntContext *ctx, void *userdata) {
-    static uint64_t best_steps = 2000;
     size_t i;
 
     if (COND) {
-        best_steps = ctx->steps;
+        steps = ctx->steps;
         sequence_format(ctx->sequence, FormatLinks);
         char *text = sequence_to_string(ctx->sequence);
-        fprintf(stdout, "[%04llu] [%010llu gen] %s\n", best_steps, ctx->generation, text);
+        fprintf(stdout, "[%04d] [%010llu gen] %s\n", steps, ctx->generation, text);
         for (i = 0; i < ctx->sequence->node_size; ++i) {
             fprintf(stdout, "[%04zu]:[%05d, %010d]\n", i,
                     ctx->sequence->node[i].enters, ctx->sequence->node[i].mutates);
@@ -66,7 +68,7 @@ void update_ctx(struct AntContext *ctx) {
         for (k = 0; k < SQUARE_SIZE; ++k) {
             switch (ctx->torus[i][k]) {
                 case SQUARE_PATH: {
-                    DrawRectangle(i * QUAD_SIZE, k * QUAD_SIZE, 20, 20, Fade(GREEN, 1.f));
+                    DrawRectangle(i * QUAD_SIZE, k * QUAD_SIZE, 20, 20, Fade(GREEN, 0.3f));
                     break;
                 }
                 case SQUARE_APPLE: {
@@ -87,7 +89,7 @@ void update_ctx(struct AntContext *ctx) {
 int main(void) {
     enum Engine sequence_state = Sequence_Prepare;
     int i = 0, control_x = 0, control_y = 0, tick_step = 0;
-    int speed = -90, steps = 2000;
+    int speed = -5;
     bool mutation_even_distrib = false, mutation_not_enter = false, mutation_even_enter = false,
             running = false, next = false, mutation_add = false, mutation_all = false;
     struct AntContext ctx = {0};
@@ -120,7 +122,7 @@ int main(void) {
 
         control_x = 660 + PADDING_X;
         control_y = 20 + PADDING_Y;
-        speed = GuiSliderBar((Rectangle) {control_x, control_y, 120, CONTROL_HEIGHT}, "Speed", NULL, speed, -100, 0);
+        speed = GuiSliderBar((Rectangle) {control_x, control_y, 120, CONTROL_HEIGHT}, "Speed", NULL, speed, -10, 0);
         control_y += CONTROL_HEIGHT;
         steps = GuiSliderBar((Rectangle) {control_x, control_y, 120, CONTROL_HEIGHT}, "Steps", NULL, steps, 100, 2000);
 
@@ -166,6 +168,10 @@ int main(void) {
                 ctx.sequence->node[i].mutate_enable
                         = GuiToggle((Rectangle) {control_x + (i * 35) + 5, control_y, 35, CONTROL_HEIGHT},
                                     node_to_string(&ctx.sequence->node[i]), ctx.sequence->node[i].mutate_enable);
+                GuiDrawText(TextFormat("%d", ctx.sequence->node[i].mutates),
+                            (Rectangle) {control_x + (i * 35) + 5, control_y + CONTROL_HEIGHT, 35, CONTROL_HEIGHT},
+                            GUI_TEXT_ALIGN_CENTER,
+                            ctx.sequence->node[i].mutates > 100 ? RED : DARKGRAY);
             }
         }
         if (next) {
@@ -187,7 +193,7 @@ int main(void) {
                 if (false == running) {
                     break;
                 }
-                if (tick_step - speed < 0) {
+                if (tick_step + speed < 0) {
                     tick_step++;
                     break;
                 }
