@@ -10,7 +10,7 @@ enum CellState {
 };
 
 enum WorldState {
-    INIT, CALCULATE, VERIFY, COPY_PREVIOUS, QUIT
+    PRESET, INIT, CALCULATE, VERIFY, COPY_PREVIOUS, QUIT
 };
 
 struct Cell {
@@ -30,6 +30,7 @@ struct World {
 };
 
 void init_world(struct World *w, size_t width, size_t height, const char *filename);
+void preset_world(struct World *w, size_t preset_width, struct Cell *cell, size_t cell_size);
 void poll_world(struct World *w);
 
 #endif //C_FSM_GAME_LIFE_H

@@ -5,9 +5,9 @@ void init_world(struct World *w, size_t width, size_t height, const char *filena
 
     w->height = height;
     w->width = width;
-    w->cells = (struct Cell **) malloc(sizeof(struct Cell *) * height);
-    for (i = 0; i < height; ++i) {
-        w->cells[i] = (struct Cell *) malloc(sizeof(struct Cell) * width);
+    w->cells = (struct Cell **) malloc(sizeof(struct Cell *) * width);
+    for (i = 0; i < width; ++i) {
+        w->cells[i] = (struct Cell *) malloc(sizeof(struct Cell) * height);
     }
     w->state = INIT;
     w->running = true;
@@ -16,13 +16,38 @@ void init_world(struct World *w, size_t width, size_t height, const char *filena
     }
 }
 
+void preset_world(struct World *w, size_t preset_width, struct Cell *cell, size_t cell_size) {
+    size_t i, x_offset = 0, y_offset = 0;
+    size_t k;
+
+
+    x_offset = w->width / 2 - preset_width / 2;
+    y_offset = w->height / 2 - preset_width / 2;
+    for (i = 0; i < w->width; ++i) {
+        for (k = 0; k < w->height; ++k) {
+            w->cells[i][k].current_state = w->cells[i][k].previous_state = DEAD;
+            w->cells[i][k].x = k;
+            w->cells[i][k].y = i;
+        }
+    }
+
+    for (i = 0; i < cell_size; ++i) {
+        w->cells[cell[i].x + x_offset][cell[i].y + y_offset].current_state
+                = w->cells[cell[i].x + x_offset][cell[i].y + y_offset].previous_state = ALIVE;
+        w->cells[cell[i].x + x_offset][cell[i].y + y_offset].x = cell[i].x + x_offset;
+        w->cells[cell[i].x + x_offset][cell[i].y + y_offset].y = cell[i].y + y_offset;
+    }
+
+    w->state = PRESET;
+}
+
 static void fill_world(struct World *w) {
     size_t i;
     size_t k;
 
     srand((unsigned int) time(0));
-    for (i = 0; i < w->height; ++i) {
-        for (k = 0; k < w->width; ++k) {
+    for (i = 0; i < w->width; ++i) {
+        for (k = 0; k < w->height; ++k) {
             w->cells[i][k].current_state = w->cells[i][k].previous_state = ((rand() & 1) == 0 ? ALIVE : DEAD);
             w->cells[i][k].x = k;
             w->cells[i][k].y = i;
@@ -37,8 +62,8 @@ static void print_world(struct World *w) {
     if (0 == w->output)
         return;
 
-    for (i = 0; i < w->height; ++i) {
-        for (k = 0; k < w->width; ++k) {
+    for (i = 0; i < w->width; ++i) {
+        for (k = 0; k < w->height; ++k) {
             if (k > 0)
                 fprintf(w->output, " ");
             fprintf(w->output, "%c", w->cells[i][k].current_state == DEAD ? ' ' : '*');
@@ -104,8 +129,8 @@ static void regenerate_world(struct World *w) {
     size_t i;
     size_t k;
 
-    for (i = 0; i < w->height; ++i) {
-        for (k = 0; k < w->width; ++k) {
+    for (i = 0; i < w->width; ++i) {
+        for (k = 0; k < w->height; ++k) {
             struct Cell **result = 0;
             int count = around_the_cell(w, &w->cells[i][k], &result);
             int alive = 0;
@@ -126,8 +151,8 @@ static void copy_world(struct World *w) {
     size_t i;
     size_t k;
 
-    for (i = 0; i < w->height; ++i) {
-        for (k = 0; k < w->width; ++k) {
+    for (i = 0; i < w->width; ++i) {
+        for (k = 0; k < w->height; ++k) {
             w->cells[i][k].previous_state = w->cells[i][k].current_state;
         }
     }
@@ -137,8 +162,8 @@ static bool equals_world(struct World *w) {
     size_t i;
     size_t k;
 
-    for (i = 0; i < w->height; ++i) {
-        for (k = 0; k < w->width; ++k) {
+    for (i = 0; i < w->width; ++i) {
+        for (k = 0; k < w->height; ++k) {
             if (w->cells[i][k].current_state != w->cells[i][k].previous_state)
                 return false;
         }
@@ -148,6 +173,10 @@ static bool equals_world(struct World *w) {
 
 void poll_world(struct World *w) {
     switch (w->state) {
+        case PRESET: {
+            w->state = CALCULATE;
+            break;
+        }
         case INIT: {
             fill_world(w);
             print_world(w);
