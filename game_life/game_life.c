@@ -26,8 +26,8 @@ void preset_world(struct World *w, size_t preset_width, struct Cell *cell, size_
     for (i = 0; i < w->width; ++i) {
         for (k = 0; k < w->height; ++k) {
             w->cells[i][k].current_state = w->cells[i][k].previous_state = DEAD;
-            w->cells[i][k].x = k;
-            w->cells[i][k].y = i;
+            w->cells[i][k].x = i;
+            w->cells[i][k].y = k;
         }
     }
 
@@ -49,8 +49,8 @@ static void fill_world(struct World *w) {
     for (i = 0; i < w->width; ++i) {
         for (k = 0; k < w->height; ++k) {
             w->cells[i][k].current_state = w->cells[i][k].previous_state = ((rand() & 1) == 0 ? ALIVE : DEAD);
-            w->cells[i][k].x = k;
-            w->cells[i][k].y = i;
+            w->cells[i][k].x = i;
+            w->cells[i][k].y = k;
         }
     }
 }
@@ -87,8 +87,8 @@ static int around_the_cell(struct World *w, struct Cell *cell, struct Cell ***re
 
 
     (*result) = not_thread_safe;
-    for (ity = cell->y - 1; ity <= cell->y + 1; ++ity) {
-        for (itx = cell->x - 1; itx <= cell->x + 1; ++itx) {
+    for (itx = cell->x - 1; itx <= cell->x + 1; ++itx) {
+        for (ity = cell->y - 1; ity <= cell->y + 1; ++ity) {
             iy = ity;
             ix = itx;
             if (iy == cell->y && ix == cell->x)
@@ -106,7 +106,7 @@ static int around_the_cell(struct World *w, struct Cell *cell, struct Cell ***re
                 ix = 0;
             }
 
-            not_thread_safe[ret] = &w->cells[iy][ix];
+            not_thread_safe[ret] = &w->cells[ix][iy];
             ++ret;
         }
     }

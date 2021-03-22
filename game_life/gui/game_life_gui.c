@@ -17,6 +17,12 @@
 #define WORLD_HEIGHT_MAX 135
 #define WORLD_WIDTH_MAX 203
 
+static struct Cell g_Trimino[] = {
+        {0, 0},
+        {1, 0},
+        {0, 1},
+};
+
 static struct Cell g_Glider[] = {
         {0, 1},
         {1, 2},
@@ -56,7 +62,9 @@ struct Figure {
         {.name = "Glider", .enable = false, .width = 3, .coord_size = sizeof(g_Glider) /
                                                                       sizeof(g_Glider[0]), .coord = g_Glider},
         {.name = "Cat", .enable = false, .width = 6, .coord_size = sizeof(g_Cat) /
-                                                                   sizeof(g_Cat[0]), .coord = g_Cat}
+                                                                   sizeof(g_Cat[0]), .coord = g_Cat},
+        {.name = "Trimino", .enable = false, .width = 3, .coord_size = sizeof(g_Trimino) /
+                                                                   sizeof(g_Trimino[0]), .coord = g_Trimino}
 };
 
 enum State {
@@ -64,7 +72,7 @@ enum State {
 };
 
 void update_world(struct World *world, int size) {
-    int i, k, x_offset = size, y_offset = size;
+    int i, k, x_offset = size;
 
     for (k = 0; k < world->height; ++k) {
         GuiDrawText(TextFormat("%d", k),
@@ -97,7 +105,7 @@ void update_world(struct World *world, int size) {
 int main(void) {
     int i, control_x, control_y, speed = -10, steps = 0, tick_gen = 0;
     int w_height = WORLD_HEIGHT_MAX, w_width = WORLD_WIDTH_MAX;
-    int win_width = WINDOW_WIDTH, win_height = WINDOW_HEIGHT, quad_size = QUAD_SIZE, quad_changed_size = QUAD_SIZE;
+    int win_width = WINDOW_WIDTH, win_height = WINDOW_HEIGHT, quad_size = 50, quad_changed_size = 50;
     int i_figure = -1;
     bool running = false, next = false;
     struct World w = {0};
@@ -136,8 +144,8 @@ int main(void) {
 
         switch (state) {
             case PreSet: {
-                w_width = ((win_width - 10 - quad_size) / quad_size);
-                w_height = ((win_height - 100 - quad_size) / quad_size);
+                w_width = ((win_width - 10 - quad_size) / quad_size) - 1;
+                w_height = ((win_height - 100 - quad_size) / quad_size) - 1;
                 init_world(&w, w_width, w_height, 0);
                 preset_world(&w, figures[i_figure].width, figures[i_figure].coord, figures[i_figure].coord_size);
                 poll_world(&w);
@@ -147,8 +155,8 @@ int main(void) {
                 break;
             }
             case Initialize: {
-                w_width = ((win_width - 10) / quad_size);
-                w_height = ((win_height - 100) / quad_size);
+                w_width = ((win_width - 10) / quad_size) - 1;
+                w_height = ((win_height - 100) / quad_size) - 1;
                 init_world(&w, w_width, w_height, 0);
                 poll_world(&w);
                 state = Running;
