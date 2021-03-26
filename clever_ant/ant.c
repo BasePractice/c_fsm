@@ -1,8 +1,10 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include "ant.h"
 
 const uint8_t APPLES = 89;
 const uint8_t TORUS[SQUARE_SIZE][SQUARE_SIZE] = {
-        {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 00
+        {3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 00
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 01
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 02
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 03
@@ -35,3 +37,28 @@ const uint8_t TORUS[SQUARE_SIZE][SQUARE_SIZE] = {
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, // 30
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}  // 31
 };
+
+void *ant_malloc_debug(size_t size, const char *fun, int line) {
+    void *address = malloc(size);
+    fprintf(stdout, "MALLOC   : 0x%08llX, %llu bytes, %s:%d\n", (unsigned long long) address, size, fun, line);
+    fflush(stdout);
+    return address;
+}
+
+void *ant_realloc_debug(void *address, size_t size, const char *fun, int line) {
+    if (0 != address) {
+        fprintf(stdout, "REALLOC  : 0x%08llX, %llu bytes, %s:%d\n", (unsigned long long) address, size, fun, line);
+        fflush(stdout);
+        return realloc(address, size);
+    }
+    return 0;
+}
+
+void ant_free_debug(void *address, const char *fun, int line) {
+    if (0 != address) {
+        fprintf(stdout, "FREE     : 0x%08llX, %s:%d\n", (unsigned long long) address, fun, line);
+        fflush(stdout);
+        free(address);
+    }
+}
+

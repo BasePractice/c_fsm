@@ -4,7 +4,13 @@ project(c_fsm C CXX)
 set(CMAKE_C_STANDARD 90)
 set(CMAKE_CXX_STANDARD 20)
 
+option(MEMORY_DEBUG "Debugging allocate memoty" OFF)
+
 include_directories(include)
+
+if (MEMORY_DEBUG)
+    add_definitions(-DMEMORY_DEBUG)
+endif ()
 
 if (GUI)
     if (UNIX)

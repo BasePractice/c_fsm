@@ -374,7 +374,7 @@ context_funclean(struct context *ctx) {
 }
 
 __inline
-context_create(struct context **ctx, const char *const name, struct context *parent) {
+void context_create(struct context **ctx, const char *const name, struct context *parent) {
     (*ctx) = (struct context *) malloc(sizeof(struct context));
     memset((*ctx), 0, sizeof(struct context));
     (*ctx)->parent = parent;
@@ -382,7 +382,7 @@ context_create(struct context **ctx, const char *const name, struct context *par
 }
 
 __inline
-context_destroy(struct context **ctx) {
+void context_destroy(struct context **ctx) {
     context_varclean((*ctx));
     context_typeclean((*ctx));
     context_funclean((*ctx));

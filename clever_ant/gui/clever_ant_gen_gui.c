@@ -54,7 +54,7 @@ static enum CircleStep next_cb(struct AntContext *ctx, void *userdata) {
                     ctx->sequence->node[i].enters, ctx->sequence->node[i].mutates);
         }
         fflush(stdout);
-        free(text);
+        ant_free(text);
         return Best;
     }
 

@@ -2,13 +2,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include "ant.h"
 #include "sequence.h"
 
 static struct Node *node_add(struct Node *node, size_t node_size, int id, int does[4]) {
     if (0 == node) {
-        node = malloc(sizeof(struct Node));
+        node = ant_malloc(sizeof(struct Node));
     } else {
-        node = realloc(node, (node_size + 1) * sizeof(struct Node));
+        node = ant_realloc(node, (node_size + 1) * sizeof(struct Node));
     }
     node[node_size].id = id;
     node[node_size].links = 0;
@@ -22,10 +23,10 @@ static struct Node *node_add(struct Node *node, size_t node_size, int id, int do
 static char *string_add(char *text, size_t *text_size, const char *append) {
     size_t append_size = strlen(append);
     if (0 == text) {
-        text = malloc(append_size + 1);
+        text = ant_malloc(append_size + 1);
         text[0] = 0;
     } else {
-        text = realloc(text, append_size + (*text_size) + 1);
+        text = ant_realloc(text, append_size + (*text_size) + 1);
     }
     (*text_size) += append_size;
     strcat(text, append);
@@ -63,7 +64,7 @@ void sequence_create(struct Sequence *sequence, const char *text) {
 
 void sequence_destroy(struct Sequence *sequence) {
     if (0 != sequence->node)
-        free(sequence->node);
+        ant_free(sequence->node);
     sequence->node = 0;
     sequence->node_size = 0;
 }
@@ -81,7 +82,7 @@ static inline int node_find_index(struct Node *node, size_t node_size, int id) {
 void sequence_clone(struct Sequence *target, const struct Sequence *source) {
     sequence_destroy(target);
     target->node_size = source->node_size;
-    target->node = malloc(source->node_size * sizeof(struct Node));
+    target->node = ant_malloc(source->node_size * sizeof(struct Node));
     memcpy(target->node, source->node, sizeof(struct Node) * source->node_size);
 }
 
@@ -279,10 +280,10 @@ void sequence_mutate(struct Sequence *sequence, int strategy) {
 
         if (0 == sorted_node) {
             sorted_node_size = sequence->node_size;
-            sorted_node = malloc(sorted_node_size * sizeof(struct SortedNode));
+            sorted_node = ant_malloc(sorted_node_size * sizeof(struct SortedNode));
         } else if (sorted_node_size < sequence->node_size) {
             sorted_node_size = sequence->node_size;
-            sorted_node = realloc(sorted_node, sorted_node_size * sizeof(struct SortedNode));
+            sorted_node = ant_realloc(sorted_node, sorted_node_size * sizeof(struct SortedNode));
         }
         for (i = 0; i < sequence->node_size; ++i) {
             sorted_node[i].mutates = sequence->node[i].mutates;

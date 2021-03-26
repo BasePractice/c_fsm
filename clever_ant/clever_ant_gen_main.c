@@ -20,11 +20,11 @@ static enum CircleStep next_cb(struct AntContext *ctx, void *userdata) {
         char *text = sequence_to_string(ctx->sequence);
         fprintf(stdout, "[%04llu] [%010llu gen] %s\n", best_steps, ctx->generation, text);
         for (i = 0; i < ctx->sequence->node_size; ++i) {
-            fprintf(stdout, "[%04llu]:[%05d, %010d]\n", i,
+            fprintf(stdout, "[%04lu]:[%05d, %010d]\n", i,
                     ctx->sequence->node[i].enters, ctx->sequence->node[i].mutates);
         }
         fflush(stdout);
-        free(text);
+        ant_free(text);
         return Best;
     }
 
@@ -35,7 +35,7 @@ static enum CircleStep next_cb(struct AntContext *ctx, void *userdata) {
 
 int main(int argc, char **argv) {
     struct Sequence sequence = {0, 0};
-    int strategy = MutateEatNext | MutateNotNext | MutateNotDo | MutateAllElements;
+    int strategy = MutateEatNext | MutateNotNext | MutateNotDo;
 
     if (argc < 2) {
         fprintf(stderr, "Not input sequence\n");
