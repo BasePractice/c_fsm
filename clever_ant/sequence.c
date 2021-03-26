@@ -325,8 +325,8 @@ static void sequence_mutate_item(const struct Sequence *sequence, int strategy, 
     if ((strategy & MutateEatNext) == MutateEatNext) {
         do {
             sequence->node[place].does[StepEatNext] = rand() % sequence->node_size - 0;
-        } while (place != sequence->node[place].does[StepEatNext] &&
-                 sequence->node[place].does[StepEatNext] != sequence->node[place].does[StepNotNext]);
+        } while (place == sequence->node[place].does[StepEatNext] ||
+                place == sequence->node[place].does[StepNotNext]);
         sequence->node[place].mutates++;
     }
 
@@ -337,8 +337,8 @@ static void sequence_mutate_item(const struct Sequence *sequence, int strategy, 
     if ((strategy & MutateNotNext) == MutateNotNext) {
         do {
             sequence->node[place].does[StepNotNext] = rand() % sequence->node_size - 0;
-        } while (place != sequence->node[place].does[StepNotNext] &&
-                 sequence->node[place].does[StepNotNext] != sequence->node[place].does[StepEatNext]);
+        } while (place == sequence->node[place].does[StepNotNext] ||
+                 place == sequence->node[place].does[StepEatNext]);
         sequence->node[place].mutates++;
     }
 }

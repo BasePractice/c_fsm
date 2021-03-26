@@ -22,6 +22,7 @@ enum Engine {
     Sequence_Step,
     Sequence_Check,
     Sequence_Mutate,
+    Sequence_Waiting
 };
 
 
@@ -39,6 +40,7 @@ static void sequence_copy_mutate(struct Sequence *dst, struct Sequence *src) {
 
 
 static int steps = 315;
+
 static enum CircleStep next_cb(struct AntContext *ctx, void *userdata) {
     size_t i;
 
@@ -91,7 +93,7 @@ int main(void) {
     int i = 0, control_x = 0, control_y = 0, tick_step = 0;
     int speed = -5;
     bool mutation_even_distrib = false, mutation_not_enter = false, mutation_even_enter = false,
-            running = false, next = false, mutation_add = false, mutation_all = false;
+            running = false, next = false, mutation_add = false, mutation_all = false, autorun = false;
     struct AntContext ctx = {0};
     struct Sequence sequence = {0, 0};
     struct Sequence origin = {0, 0};
@@ -104,15 +106,14 @@ int main(void) {
     sequence_create(&origin, SEQ);
     sequence_clone(&best_sequence, &origin);
     sequence_clone(&sequence, &origin);
-    InitWindow(800, 700, "Clever Ant");
+    InitWindow(800, 750, "Clever Ant");
     SetTargetFPS(60);
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        for (i = 0; i < 31; ++i) {
-            DrawLine(0, i * QUAD_SIZE, 31 * QUAD_SIZE, i * QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
+        for (i = 0; i < 32; ++i) {
+            DrawLine(0, i * QUAD_SIZE, 32 * QUAD_SIZE, i * QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
         }
-        DrawLine(0, 32 * QUAD_SIZE, GetScreenWidth(), 32 * QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
 
         for (i = 0; i < 32; ++i) {
             DrawLine(i * QUAD_SIZE, 0, i * QUAD_SIZE, 32 * QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
@@ -143,7 +144,10 @@ int main(void) {
         mutation_all = GuiCheckBox((Rectangle) {control_x, control_y, 20, CONTROL_HEIGHT}, "MutAll",
                                    mutation_all);
         control_y += CONTROL_HEIGHT;
-        running = GuiCheckBox((Rectangle) {control_x, control_y, 20, CONTROL_HEIGHT}, "Running", running);
+        autorun = GuiCheckBox((Rectangle) {control_x, control_y, 20, CONTROL_HEIGHT}, "AutoRun",
+                              autorun);
+        control_y += CONTROL_HEIGHT;
+        running = GuiToggle((Rectangle) {control_x, control_y, 45, CONTROL_HEIGHT}, "Running", running);
 
         control_y += CONTROL_HEIGHT;
         control_y += CONTROL_HEIGHT;
@@ -155,6 +159,9 @@ int main(void) {
         control_y += CONTROL_HEIGHT;
         DrawText(TextFormat("GEN: %d", ctx.generation), control_x, control_y, 10,
                  (ctx.generation >= 100) ? MAROON : DARKGRAY);
+        control_y += CONTROL_HEIGHT;
+        DrawText(TextFormat("STATES: %d", 0 != ctx.sequence ? ctx.sequence->node_size : 0), control_x, control_y, 10,
+                 (ctx.generation >= 100) ? MAROON : DARKGRAY);
 
         control_y += CONTROL_HEIGHT;
         control_y += CONTROL_HEIGHT;
@@ -163,15 +170,23 @@ int main(void) {
         //Bottom pane
         control_x = 5 + PADDING_X;
         control_y = (SQUARE_SIZE * QUAD_SIZE) + 20;
+#define BUTTON_MUT_WIDTH 40
         if (0 != ctx.sequence) {
             for (i = 0; i < ctx.sequence->node_size; ++i) {
                 ctx.sequence->node[i].mutate_enable
-                        = GuiToggle((Rectangle) {control_x + (i * 35) + 5, control_y, 35, CONTROL_HEIGHT},
+                        = GuiToggle((Rectangle) {control_x + (i * BUTTON_MUT_WIDTH) + 5, control_y, BUTTON_MUT_WIDTH,
+                                                 CONTROL_HEIGHT},
                                     node_to_string(&ctx.sequence->node[i]), ctx.sequence->node[i].mutate_enable);
                 GuiDrawText(TextFormat("%d", ctx.sequence->node[i].mutates),
-                            (Rectangle) {control_x + (i * 35) + 5, control_y + CONTROL_HEIGHT, 35, CONTROL_HEIGHT},
+                            (Rectangle) {control_x + (i * BUTTON_MUT_WIDTH) + 5, control_y + CONTROL_HEIGHT,
+                                         BUTTON_MUT_WIDTH, CONTROL_HEIGHT},
                             GUI_TEXT_ALIGN_CENTER,
                             ctx.sequence->node[i].mutates > 100 ? RED : DARKGRAY);
+                GuiDrawText(TextFormat("%d", ctx.sequence->node[i].enters),
+                            (Rectangle) {control_x + (i * BUTTON_MUT_WIDTH) + 5,
+                                         control_y + CONTROL_HEIGHT + CONTROL_HEIGHT, BUTTON_MUT_WIDTH, CONTROL_HEIGHT},
+                            GUI_TEXT_ALIGN_CENTER,
+                            ctx.sequence->node[i].enters > 50 ? RED : DARKGRAY);
             }
         }
         if (next) {
@@ -181,6 +196,12 @@ int main(void) {
         //Sequence
         switch (sequence_state) {
             default:
+            case Sequence_Waiting: {
+                if (autorun) {
+                    sequence_state = Sequence_Mutate;
+                }
+                break;
+            }
             case Sequence_Prepare: {
                 context_next(&ctx, &sequence, APPLES, TORUS);
                 sequence_reset_enters(ctx.sequence);
@@ -234,7 +255,7 @@ int main(void) {
                         break;
                     }
                 }
-                sequence_state = Sequence_Mutate;
+                sequence_state = Sequence_Waiting;
                 break;
             }
             case Sequence_Mutate: {
