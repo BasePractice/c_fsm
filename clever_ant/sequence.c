@@ -180,19 +180,19 @@ char *node_to_string(struct Node *node) {
 static inline char *sequence_get_does_name(int _do) {
     switch (_do) {
         case 0: {
-            return "вправо";
+            return "right";
         }
         case 1: {
-            return "влево";
+            return "left";
         }
         case 2: {
-            return "вперед";
+            return "up";
         }
         case 3: {
-            return "вперед и поедание";
+            return "up & eat";
         }
         default: {
-            return "неизвестное";
+            return "unknown";
         }
     }
 }
@@ -205,11 +205,11 @@ void sequence_uml_fd(FILE *fd, struct Sequence *sequence) {
 
     uml = string_add(uml, &uml_allocated, uml_start);
     for (i = 0; i < sequence->node_size; ++i) {
-        snprintf(buf, sizeof(buf), "S_%d --> S_%d: яблоко/%s\n",
+        snprintf(buf, sizeof(buf), "S_%d --> S_%d: apple/%s\n",
                  sequence->node[i].id, sequence->node[sequence->node[i].does[StepEatNext]].id,
                  sequence_get_does_name(sequence->node[i].does[StepEatDo]));
         uml = string_add(uml, &uml_allocated, buf);
-        snprintf(buf, sizeof(buf), "S_%d --> S_%d: пусто/%s\n",
+        snprintf(buf, sizeof(buf), "S_%d --> S_%d: empty/%s\n",
                  sequence->node[i].id, sequence->node[sequence->node[i].does[StepNotNext]].id,
                  sequence_get_does_name(sequence->node[i].does[StepNotDo]));
         uml = string_add(uml, &uml_allocated, buf);
