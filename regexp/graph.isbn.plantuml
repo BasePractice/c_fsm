@@ -1,0 +1,32 @@
+@startuml
+hide empty description
+[*] --> Eat_I: eat I
+[*] --> Eat_9: eat 9
+[*] --> Eat_Next8: eat another digit
+Eat_I --> Eat_S: eat S
+Eat_S --> Eat_B: eat B
+Eat_B --> Eat_N: eat N
+Eat_N --> Eat_Comma: eat comma
+Eat_Comma --> Eat_9: eat 9
+Eat_Comma --> Eat_Next8: eat another digit
+Eat_N --> Eat_9: eat 9
+Eat_N --> Eat_Next8: eat another digit
+Eat_9 --> Eat_7: eat 7
+Eat_9 --> Eat_Next7: eat digit
+Eat_7 --> EatOr_9: eat 9
+Eat_7 --> EatOr_8: eat 8
+Eat_7 --> Eat_Next6: eat digit
+EatOr_9 --> Eat_Next8: eat digit
+EatOr_8 --> Eat_Next8: eat digit
+Eat_Next8 --> Eat_Next7: eat digit
+Eat_Next7 --> Eat_Next6: eat digit
+Eat_Next6 --> Eat_Next5: eat digit
+Eat_Next5 --> Eat_Next4: eat digit
+Eat_Next4 --> Eat_Next3: eat digit
+Eat_Next3 --> Eat_Next2: eat digit
+Eat_Next2 --> Eat_Next1: eat digit
+Eat_Next1 --> Eat_NextDigit: eat digit
+Eat_Next1 --> Eat_NextX: eat digit
+Eat_NextDigit --> [*]: eat digit
+Eat_NextX --> [*]: eat x
+@enduml
