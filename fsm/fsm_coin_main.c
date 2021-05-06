@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <string.h>
+#include <ctype.h>
 #include "fsm_coin.h"
 
 static int read_coin(FILE *in) {
@@ -42,6 +42,6 @@ int main(int argc, char **argv) {
         enum Output output = coin_machine_tick(&machine, (enum Input) d);
         fprintf(stdout, "Machine   > [%2d, %d, State = %d]\n", d, (int) output, (int) machine.state);
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
 

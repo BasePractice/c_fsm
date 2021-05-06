@@ -127,7 +127,7 @@ int main(void) {
         GuiSpinner((Rectangle) {control_x + 250, control_y, 60, CONTROL_HEIGHT}, "Size", &quad_changed_size, 1, 50,
                    false);
         control_y += CONTROL_HEIGHT;
-        running = GuiCheckBox((Rectangle) {control_x, control_y, 20, CONTROL_HEIGHT}, "Running", running);
+        running = GuiToggle((Rectangle) {control_x, control_y, 45, CONTROL_HEIGHT}, "Running", running);
         control_y += CONTROL_HEIGHT;
         DrawText(TextFormat("STEP: %d", steps), control_x, control_y, 10,
                  (steps >= 2000) ? MAROON : DARKGRAY);
