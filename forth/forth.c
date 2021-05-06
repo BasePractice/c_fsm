@@ -24,6 +24,8 @@ typedef u64 uptr;
 #define CALL_SIZE          1024
 #define ENTRY_SIZE         256
 
+#define PORT_STDOUT        0
+
 struct Entry {
     char *name;
     char *text;
@@ -40,6 +42,8 @@ struct Dict {
 #define DATA_STRING  1
 
 struct Fm {
+    u32 base; /* Индекс базового адреса */
+    u32 port;
     u8 memo[MEM_SIZE];
     u32 ip;
     u32 ic;
@@ -49,6 +53,10 @@ struct Fm {
     u32 pcall;
 
     struct Dict dict;
+
+    void (*port_out)(struct Fm *vm, u32 port, u8 value);
+
+    u8 (*port_in)(struct Fm *vm, u32 port);
 };
 
 enum Instruct {
@@ -63,12 +71,16 @@ enum Instruct {
     Drop = 0x11,
     Dup = 0x12,
     Dot = 0x13,
-    PutString = 0x14 /** PUT_STRING (len: 4) (CHAR: len) */
+    BaseWrite = 0x14,
+    BaseRead = 0x15,
+    PortOut = 0x16,
+    PortIn = 0x17,
+    PutString = 0xf0 /** PUT_STRING (len: 4) (CHAR: len) */
 };
 
 static int
 dict_hash(const char *const text) {
-    size_t n = strlen(text) - 1;
+    int n = (int) strlen(text) - 1;
     int ret = 0;
     while (n >= 0)
         ret += text[n--];
@@ -135,6 +147,11 @@ data_push_integer(struct Fm *vm, u32 value) {
 }
 
 static __inline u32
+data_peek_integer_without_type(struct Fm *vm) {
+    return *((u32 *) &vm->data[vm->pdata - sizeof(u32) - 1 - 1]);
+}
+
+static __inline u32
 data_pop_integer_without_type(struct Fm *vm) {
     u32 value;
     vm->pdata -= sizeof(u32) - 1;
@@ -150,16 +167,58 @@ data_pop_integer(struct Fm *vm) {
     return data_pop_integer_without_type(vm);
 }
 
+static __inline u32
+data_peek_integer(struct Fm *vm) {
+    u8 type = data_peek(vm);
+    assert(type == DATA_INTEGER);
+    return data_peek_integer_without_type(vm);
+}
+
 static __inline void
-data_push_string(struct Fm *vm, const u8 *ptr, u32 begin, u32 end) {
+data_push_string(struct Fm *vm, u32 begin, u32 end) {
     u32 i;
 
     for (i = end - 1; i >= begin; i--) {
-        vm->data[++vm->pdata] = *(ptr + i);
+        vm->data[++vm->pdata] = *(vm->memo + i);
     }
     *((u32 *) &vm->data[++vm->pdata]) = end - begin;
     vm->pdata += sizeof(u32);
     vm->data[vm->pdata] = DATA_STRING;
+}
+
+static __inline u8
+memo_read_u8(struct Fm *vm, u32 i) {
+    return vm->memo[i];
+}
+
+static __inline void
+memo_write_u8(struct Fm *vm, u32 i, u8 value) {
+    vm->memo[i] = value;
+}
+
+static __inline u32
+memo_read_u32(struct Fm *vm, u32 i) {
+    return *((u32 *) &vm->memo[i]);
+}
+
+static __inline void
+memo_write_u32(struct Fm *vm, u32 i, u32 value) {
+    *((u32 *) &vm->memo[i]) = value;
+}
+
+static void
+port_out(struct Fm *vm, u32 port, u8 value) {
+    switch (port) {
+        default:
+        case PORT_STDOUT: {
+            fprintf(stdout, "%c", value);
+            break;
+        }
+    }
+}
+
+static u8
+port_in(struct Fm *vm, u32 port) {
 }
 
 void
@@ -167,7 +226,7 @@ fm_run(struct Fm *vm, const unsigned int circles) {
     u32 it = 0;
     u8 is_running = 1;
     while (is_running) {
-        switch (vm->memo[vm->ip]) {
+        switch (memo_read_u8(vm, vm->ip)) {
             case Add: {
                 const u32 n1 = data_pop_integer(vm);
                 const u32 n2 = data_pop_integer(vm);
@@ -198,9 +257,17 @@ fm_run(struct Fm *vm, const unsigned int circles) {
             }
             case Push: {
                 ++vm->ip;
-                const u32 n = *((u32 *) &vm->memo[vm->ip]);
+                const u32 n = memo_read_u32(vm, vm->ip);
                 vm->ip += 4;
                 data_push_integer(vm, n);
+                break;
+            }
+            case BaseRead: {
+                vm->base = data_pop_integer(vm);
+                break;
+            }
+            case BaseWrite: {
+                data_push_integer(vm, vm->base);
                 break;
             }
             case Dup: {
@@ -209,17 +276,16 @@ fm_run(struct Fm *vm, const unsigned int circles) {
                 switch (type) {
                     default:
                     case DATA_INTEGER: {
-                        const u32 value = *((u32 *) &vm->data[vm->pdata]);
-                        *((u32 *) &vm->data[vm->pdata]) = value;
-                        vm->pdata += sizeof(u32);
-                        vm->data[vm->pdata] = DATA_INTEGER;
-                        vm->pdata += 1;
+                        data_push_integer(vm, data_peek_integer(vm));
                         break;
                     }
                     case DATA_STRING: {
+#if 1
+#warning "Duplicate function for string not implement yet"
+#else
                         u32 i, k;
-                        u32 len = *((u32 *) &vm->data[vm->pdata]);
-                        u32 ptr = vm->pdata;
+                        u32 len = data_peek_integer_without_type(vm);
+                        u32 ptr = vm->pdata - sizeof(u32) - 1 - 1;
                         for (i = ptr, k = ptr + len + 1; i <= ptr + len; ++i) {
                             vm->data[k] = vm->data[i];
                         }
@@ -227,23 +293,24 @@ fm_run(struct Fm *vm, const unsigned int circles) {
                         vm->pdata += sizeof(u32);
                         vm->pdata += 1;
                         vm->data[vm->pdata] = DATA_STRING;
+#endif
                         break;
                     }
                 }
                 break;
             }
             case Drop: {
-                u8 type = data_peek(vm);
+                u8 type = data_pop(vm);
                 ++vm->ip;
                 switch (type) {
                     default:
                     case DATA_INTEGER: {
-                        data_pop_integer(vm);
+                        data_pop_integer_without_type(vm);
                         break;
                     }
                     case DATA_STRING: {
                         u32 i;
-                        u32 len = data_pop_integer(vm);
+                        u32 len = data_pop_integer_without_type(vm);
                         for (i = 0; i < len; ++i) {
                             vm->pdata--;
                         }
@@ -265,17 +332,17 @@ fm_run(struct Fm *vm, const unsigned int circles) {
                         u32 i;
                         u32 len = data_pop_integer_without_type(vm);
                         for (i = 0; i < len; ++i) {
-                            fprintf(stdout, "%c", vm->data[vm->pdata--]);
+                            u8 d = data_pop(vm);
+                            (*vm->port_out)(vm, vm->port, d);
                         }
                         break;
                     }
                 }
-                fprintf(stdout, " ");
                 break;
             }
             case Call: {
                 ++vm->ip;
-                const u32 address = *((u32 *) &vm->memo[vm->ip]);
+                const u32 address = memo_read_u32(vm, vm->ip);
                 vm->ip += 4;
                 vm->call[vm->pcall++] = vm->ip;
                 vm->ip = address;
@@ -285,9 +352,9 @@ fm_run(struct Fm *vm, const unsigned int circles) {
                 u32 len;
 
                 ++vm->ip;
-                len = *((u32 *) &vm->memo[vm->ip]);
+                len = memo_read_u32(vm, vm->ip);
                 vm->ip += sizeof(u32);
-                data_push_string(vm, vm->memo, vm->ip, vm->ip + len);
+                data_push_string(vm, vm->ip, vm->ip + len);
                 vm->ip += len;
                 break;
             }
@@ -298,6 +365,22 @@ fm_run(struct Fm *vm, const unsigned int circles) {
                 if (address == 0xffffffff) {
                     is_running = 0;
                 }
+                break;
+            }
+            case PortOut: {
+                u32 port, value;
+                ++vm->ip;
+                port = data_pop_integer(vm);
+                value = data_pop_integer(vm);
+                (*vm->port_out)(vm, port, value);
+                break;
+            }
+            case PortIn: {
+                u32 port, value;
+                ++vm->ip;
+                port = data_pop_integer(vm);
+                value = (*vm->port_in)(vm, port);
+                data_push_integer(vm, value);
                 break;
             }
         }
@@ -318,6 +401,10 @@ fm_default(struct Fm *vm) {
     dict_add(&vm->dict, "DROP", 0, Drop);
     dict_add(&vm->dict, "DUP", 0, Dup);
     dict_add(&vm->dict, ".", 0, Dot);
+    dict_add(&vm->dict, "BASE_W", 0, BaseWrite);
+    dict_add(&vm->dict, "BASE_R", 0, BaseRead);
+    dict_add(&vm->dict, "IN", 0, PortIn);
+    dict_add(&vm->dict, "OUT", 0, PortOut);
     dict_add(&vm->dict, ".\"", 0, PutString);
 }
 
@@ -332,6 +419,10 @@ fm_create() {
     vm->pcall = 0;
     vm->ip = 0;
     vm->ic = 0;
+    vm->base = 0;
+    vm->port_in = port_in;
+    vm->port_out = port_out;
+    vm->port = PORT_STDOUT;
     fm_default(vm);
     return vm;
 }
@@ -378,7 +469,7 @@ tok_isstring(const char *token) {
 }
 
 void
-fm_compile(struct Fm *vm, const char *const text) {
+fm_inter(struct Fm *vm, const char *text) {
     char *p = (char *) text;
     char token[256];
 
@@ -394,7 +485,7 @@ fm_compile(struct Fm *vm, const char *const text) {
             while (1) {
                 p = tok_next(p, token);
                 if (token[0] == ';' && token[1] == 0) {
-                    vm->memo[vm->ic++] = Ret;
+                    memo_write_u8(vm, vm->ic++, Ret);
                     dict_add(&vm->dict, name, address, Nop);
                     break;
                 } else if (token[0] == '(' && token[1] == 0) {
@@ -404,8 +495,8 @@ fm_compile(struct Fm *vm, const char *const text) {
                     }
                 } else if (tok_isnumber(token)) {
                     const u32 n = strtol(token, 0, 10);
-                    vm->memo[vm->ic++] = Push;
-                    *((u32 *) &vm->memo[vm->ic]) = n;
+                    memo_write_u8(vm, vm->ic++, Push);
+                    memo_write_u32(vm, vm->ic, n);
                     vm->ic += sizeof(u32);
                 } else if (tok_isstring(token)) {
                     u32 len;
@@ -415,11 +506,11 @@ fm_compile(struct Fm *vm, const char *const text) {
                     if (*p != 0)
                         ++p;
                     len = strlen(token);
-                    vm->memo[vm->ic++] = PutString;
-                    *((u32 *) &vm->memo[vm->ic]) = len;
+                    memo_write_u8(vm, vm->ic++, PutString);
+                    memo_write_u32(vm, vm->ic, len);
                     vm->ic += sizeof(u32);
                     for (d = 0; d < strlen(token); d++) {
-                        vm->memo[vm->ic++] = token[d];
+                        memo_write_u8(vm, vm->ic++, token[d]);
                     }
                 } else {
                     struct Entry *e = dict_find(&vm->dict, token);
@@ -428,10 +519,10 @@ fm_compile(struct Fm *vm, const char *const text) {
                         return;
                     }
                     if (e->opcod > Nop) {
-                        vm->memo[vm->ic++] = e->opcod;
+                        memo_write_u8(vm, vm->ic++, e->opcod);
                     } else {
-                        vm->memo[vm->ic++] = Call;
-                        *((u32 *) &vm->memo[vm->ic]) = e->uptr;
+                        memo_write_u8(vm, vm->ic++, Call);
+                        memo_write_u32(vm, vm->ic, e->uptr);
                         vm->ic += sizeof(u32);
                     }
                 }
@@ -445,19 +536,20 @@ fm_compile(struct Fm *vm, const char *const text) {
                     fprintf(stderr, "Function %s not found\n", token);
                     return;
                 }
-            }
-            if (e->opcod > Nop) {
-                const u32 ret = vm->ip;
-                vm->ip = MEM_SIZE - 1;
-                vm->memo[MEM_SIZE - 1] = e->opcod;
-                fm_run(vm, 1);
-                vm->ip = ret;
             } else {
-                const u32 ret = vm->ip;
-                vm->call[vm->pcall++] = 0xffffffff;
-                vm->ip = e->uptr;
-                fm_run(vm, -1);
-                vm->ip = ret;
+                if (e->opcod > Nop) {
+                    const u32 ret = vm->ip;
+                    vm->ip = MEM_SIZE - 1;
+                    memo_write_u8(vm, MEM_SIZE - 1, e->opcod);
+                    fm_run(vm, 1);
+                    vm->ip = ret;
+                } else {
+                    const u32 ret = vm->ip;
+                    vm->call[vm->pcall++] = 0xffffffff;
+                    vm->ip = e->uptr;
+                    fm_run(vm, -1);
+                    vm->ip = ret;
+                }
             }
         }
     }
