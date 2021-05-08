@@ -476,6 +476,7 @@ fm_start(struct Fm *vm, char *fun) {
             data_push_integer(vm, strtol(fun, 0, 10));
         } else {
             fprintf(stderr, "Function %s not found\n", fun);
+            fflush(stderr);
             return;
         }
     } else {
@@ -539,6 +540,7 @@ fm_inter(struct Fm *vm, const char *text) {
                         fflush(stderr);
                         return;
                     }
+                    /*Формирование шитого кода*/
                     if (e->opcod > Nop) {
                         memo_write_u8(vm, vm->memo_it++, e->opcod);
                     } else {
@@ -554,3 +556,19 @@ fm_inter(struct Fm *vm, const char *text) {
     }
 }
 
+void
+fm_memo_read(struct Fm *vm, write_to write, void *user_data) {
+    u32 offset;
+
+    for (offset = 0; offset < vm->memo_it; ++offset) {
+        (*write)(vm->memo + offset, sizeof(u8), user_data);
+    }
+}
+
+void
+fm_memo_write(struct Fm *vm, read_to read, eof_to eof, void *user_data) {
+    while (!(*eof)(vm->memo_it, user_data)) {
+        vm->memo[vm->memo_it] = (*read)(vm->memo_it, user_data);
+        vm->memo_it++;
+    }
+}

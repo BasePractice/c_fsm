@@ -15,7 +15,7 @@ typedef u64 uptr;
 #endif
 
 #define MEM_SIZE           4096
-#define DATA_SIZE          4096
+#define DATA_SIZE          2048
 #define CALL_SIZE          1024
 #define ENTRY_SIZE         256
 
@@ -24,10 +24,14 @@ typedef u64 uptr;
 struct Entry {
     char *name;
     char *text;
-    u32 uptr;
+    uptr uptr;
     u8 opcod;
     struct Entry *next;
 };
+
+typedef void (*write_to)(u8 *ptr, u32 size, void *user_data);
+typedef u8 (*read_to)(u32 it, void *user_data);
+typedef int (*eof_to)(u32 it, void *user_data);
 
 struct Fm *
 fm_create();
@@ -46,5 +50,11 @@ fm_search(struct Fm *vm, char *fun);
 
 void
 fm_run(struct Fm *vm, unsigned int circles);
+
+void
+fm_memo_read(struct Fm *vm, write_to write, void *user_data);
+
+void
+fm_memo_write(struct Fm *vm, read_to read, eof_to eof, void *user_data);
 
 #endif
