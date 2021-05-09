@@ -15,8 +15,11 @@ static u8 memo_read_fd(u32 it, FILE *fd) {
 }
 
 static int memo_eof_fd(u32 it, FILE *fd) {
-    fseek(fd, it, SEEK_SET);
-    return feof(fd);
+    long v, t = ftell(fd);
+    fseek(fd, 0, SEEK_END);
+    v = ftell(fd);
+    fseek(fd, t, SEEK_SET);
+    return it >= v;
 }
 
 int
@@ -52,9 +55,24 @@ main(int argc, char **argv) {
             fm_memo_read(vm, (write_to) memo_write_fd, fd);
             fclose(fd);
         }
+        fd = fopen("vm.mem", "r");
+        if (0 != fd) {
+            fm_memo_write(vm, (read_to) memo_read_fd, (eof_to) memo_eof_fd, fd);
+            fclose(fd);
+        }
     }
 
     fprintf(stdout, "\n");
+
+    fm_exec(vm, sum);
+    fm_exec(vm, dot);
+    fm_exec(vm, dot);
+    fm_exec(vm, crlf);
+    fm_exec(vm, base_r);
+    fm_exec(vm, dot);
+
+    fprintf(stdout, "\n");
+
     return EXIT_SUCCESS;
 }
 

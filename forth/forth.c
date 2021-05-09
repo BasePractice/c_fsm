@@ -567,6 +567,10 @@ fm_memo_read(struct Fm *vm, write_to write, void *user_data) {
 
 void
 fm_memo_write(struct Fm *vm, read_to read, eof_to eof, void *user_data) {
+    memset(vm->memo, 0, MEM_SIZE);
+    memset(vm->data, 0, DATA_SIZE);
+    vm->memo_it = 0;
+    vm->data_it = -1;
     while (!(*eof)(vm->memo_it, user_data)) {
         vm->memo[vm->memo_it] = (*read)(vm->memo_it, user_data);
         vm->memo_it++;
