@@ -5,14 +5,10 @@
 #include <assert.h>
 #include "forth.h"
 
-struct Dict {
-    struct Entry e[ENTRY_SIZE];
-};
-
 #define DATA_INTEGER 0
 #define DATA_STRING  1
 
-struct Fm {
+struct VM {
     u32 base; /* Индекс базового адреса */
     u32 port;
     u8 memo[MEM_SIZE];
@@ -22,12 +18,12 @@ struct Fm {
     i32 data_it;
     uptr call[CALL_SIZE];
     u32 call_it;
+    struct Entry entry[ENTRY_SIZE];
+    u32 entry_it;
 
-    struct Dict dict;
+    void (*port_out)(struct VM *vm, u32 port, u8 value);
 
-    void (*port_out)(struct Fm *vm, u32 port, u8 value);
-
-    u8 (*port_in)(struct Fm *vm, u32 port);
+    u8 (*port_in)(struct VM *vm, u32 port);
 };
 
 enum Instruct {
@@ -49,68 +45,39 @@ enum Instruct {
     PutString = 0xf0 /** PUT_STRING (len: 4) (CHAR: len) */
 };
 
-static int
-dict_hash(const char *const text) {
-    int n = (int) strlen(text) - 1;
-    int ret = 0;
-    while (n >= 0)
-        ret += text[n--];
-    return ret;
-}
-
 static void
-dict_add(struct Dict *dict, const char *const name, u32 address, u8 opcod) {
-    const int hash = dict_hash(name);
-    const int id = hash & (ENTRY_SIZE - 1);
-    struct Entry *it = &dict->e[id];
-    if (it != 0) {
-        if (it->name != 0) {
-            while (it) {
-                if (!strcmp(it->name, name)) {
-                    it->uptr = address;
-                    it->opcod = opcod;
-                    return;
-                }
-                if (it->next == 0)
-                    break;
-                it = it->next;
-            }
-            it->next = (struct Entry *) calloc(1, sizeof(struct Entry));
-            it = it->next;
-        }
-
-        it->name = strdup(name);
-        it->uptr = address;
-        it->opcod = opcod;
-    }
+dict_add(struct VM *vm, const char *const name, u32 address, u8 opcod) {
+    vm->entry[vm->entry_it].name = strdup(name);
+    vm->entry[vm->entry_it].uptr = address;
+    vm->entry[vm->entry_it].opcod = opcod;
+    vm->entry_it++;
 }
 
 static struct Entry *
-dict_find(struct Dict *dict, const char *const name) {
-    const int hash = dict_hash(name);
-    const int id = hash & (ENTRY_SIZE - 1);
-    struct Entry *it = &dict->e[id];
-    while (it && it->name) {
-        if (!strcmp(it->name, name))
-            return it;
+dict_find(struct VM *vm, const char *const name) {
+    u32 it;
+
+    for (it = 0; it < vm->entry_it; ++it) {
+        if (!strcmp(vm->entry[it].name, name))
+            return &vm->entry[it];
     }
     return 0;
 }
 
 static __inline u8
-data_peek(struct Fm *vm) {
+data_peek(struct VM *vm) {
     assert(vm->data_it >= 0);
     return vm->data[vm->data_it];
 }
 
 static __inline u8
-data_pop(struct Fm *vm) {
+data_pop(struct VM *vm) {
     assert(vm->data_it >= 0);
     return vm->data[vm->data_it--];
 }
 
 static __inline void
-data_push_integer(struct Fm *vm, u32 value) {
+data_push_integer(struct VM *vm, u32 value) {
     vm->data_it += 1;
     *((u32 *) &vm->data[vm->data_it]) = value;
     vm->data_it += sizeof(u32);
@@ -118,12 +85,12 @@ data_push_integer(struct Fm *vm, u32 value) {
 }
 
 static __inline u32
-data_peek_integer_without_type(struct Fm *vm) {
+data_peek_integer_without_type(struct VM *vm) {
     return *((u32 *) &vm->data[vm->data_it - sizeof(u32) - 1 - 1]);
 }
 
 static __inline u32
-data_pop_integer_without_type(struct Fm *vm) {
+data_pop_integer_without_type(struct VM *vm) {
     u32 value;
     vm->data_it -= sizeof(u32) - 1;
     value = *((u32 *) &vm->data[vm->data_it]);
@@ -132,21 +99,21 @@ data_pop_integer_without_type(struct Fm *vm) {
 }
 
 static __inline u32
-data_pop_integer(struct Fm *vm) {
+data_pop_integer(struct VM *vm) {
     u8 type = data_pop(vm);
     assert(type == DATA_INTEGER);
     return data_pop_integer_without_type(vm);
 }
 
 static __inline u32
-data_peek_integer(struct Fm *vm) {
+data_peek_integer(struct VM *vm) {
     u8 type = data_peek(vm);
     assert(type == DATA_INTEGER);
     return data_peek_integer_without_type(vm);
 }
 
 static __inline void
-data_push_string(struct Fm *vm, u32 begin, u32 end) {
+data_push_string(struct VM *vm, u32 begin, u32 end) {
     u32 i;
 
     for (i = end - 1; i >= begin; i--) {
@@ -158,31 +125,31 @@ data_push_string(struct Fm *vm, u32 begin, u32 end) {
 }
 
 static __inline u8
-memo_read_u8(struct Fm *vm, u32 i) {
+memo_read_u8(struct VM *vm, u32 i) {
     assert(i < MEM_SIZE);
     return vm->memo[i];
 }
 
 static __inline void
-memo_write_u8(struct Fm *vm, u32 i, u8 value) {
+memo_write_u8(struct VM *vm, u32 i, u8 value) {
     assert(i < MEM_SIZE);
     vm->memo[i] = value;
 }
 
 static __inline u32
-memo_read_u32(struct Fm *vm, u32 i) {
+memo_read_u32(struct VM *vm, u32 i) {
     assert(i < MEM_SIZE);
     return *((u32 *) &vm->memo[i]);
 }
 
 static __inline void
-memo_write_u32(struct Fm *vm, u32 i, u32 value) {
+memo_write_u32(struct VM *vm, u32 i, u32 value) {
     assert(i < MEM_SIZE);
     *((u32 *) &vm->memo[i]) = value;
 }
 
 static void
-port_out(struct Fm *vm, u32 port, u8 value) {
+port_out(struct VM *vm, u32 port, u8 value) {
     switch (port) {
         default:
         case PORT_STD: {
@@ -194,7 +161,7 @@ port_out(struct Fm *vm, u32 port, u8 value) {
 }
 
 static u8
-port_in(struct Fm *vm, u32 port) {
+port_in(struct VM *vm, u32 port) {
     switch (port) {
         default:
         case PORT_STD: {
@@ -204,7 +171,7 @@ port_in(struct Fm *vm, u32 port) {
 }
 
 void
-fm_run(struct Fm *vm, const unsigned int circles) {
+vm_run(struct VM *vm, unsigned int circles) {
     u32 it = 0;
     u8 is_running = 1;
     while (is_running) {
@@ -376,30 +343,31 @@ fm_run(struct Fm *vm, const unsigned int circles) {
 }
 
 static void
-fm_default(struct Fm *vm) {
-    dict_add(&vm->dict, "+", 0, Add);
-    dict_add(&vm->dict, "-", 0, Sub);
-    dict_add(&vm->dict, "/", 0, Div);
-    dict_add(&vm->dict, "*", 0, Mul);
-    dict_add(&vm->dict, "DROP", 0, Drop);
-    dict_add(&vm->dict, "DUP", 0, Dup);
-    dict_add(&vm->dict, ".", 0, Dot);
-    dict_add(&vm->dict, "BASE_W", 0, BaseWrite);
-    dict_add(&vm->dict, "BASE_R", 0, BaseRead);
-    dict_add(&vm->dict, "IN", 0, PortIn);
-    dict_add(&vm->dict, "OUT", 0, PortOut);
-    dict_add(&vm->dict, ".\"", 0, PutString);
+fm_default(struct VM *vm) {
+    dict_add(vm, "+", 0, Add);
+    dict_add(vm, "-", 0, Sub);
+    dict_add(vm, "/", 0, Div);
+    dict_add(vm, "*", 0, Mul);
+    dict_add(vm, "DROP", 0, Drop);
+    dict_add(vm, "DUP", 0, Dup);
+    dict_add(vm, ".", 0, Dot);
+    dict_add(vm, "BASE_W", 0, BaseWrite);
+    dict_add(vm, "BASE_R", 0, BaseRead);
+    dict_add(vm, "IN", 0, PortIn);
+    dict_add(vm, "OUT", 0, PortOut);
+    dict_add(vm, ".\"", 0, PutString);
 }
 
-struct Fm *
-fm_create() {
-    struct Fm *vm = (struct Fm *) calloc(1, sizeof(struct Fm));
+struct VM *
+vm_create() {
+    struct VM *vm = (struct VM *) calloc(1, sizeof(struct VM));
     memset(vm->memo, 0, sizeof(vm->memo));
     memset(vm->data, 0, sizeof(vm->data));
     memset(vm->call, 0, sizeof(vm->call));
-    memset(&vm->dict, 0, sizeof(vm->dict));
+    memset(&vm->entry, 0, sizeof(vm->entry));
     vm->data_it = -1;
     vm->call_it = 0;
+    vm->entry_it = 0;
     vm->ip = 0;
     vm->memo_it = 0;
     vm->base = 0;
@@ -452,25 +420,25 @@ tok_isstring(const char *token) {
 }
 
 void
-fm_exec(struct Fm *vm, struct Entry *entry) {
+vm_exec(struct VM *vm, struct Entry *entry) {
     if (entry->opcod > Nop) {
         const u32 ret = vm->ip;
         vm->ip = MEM_SIZE - 1;
         memo_write_u8(vm, MEM_SIZE - 1, entry->opcod);
-        fm_run(vm, 1);
+        vm_run(vm, 1);
         vm->ip = ret;
     } else {
         const u32 ret = vm->ip;
         vm->call[vm->call_it++] = 0xffffffff;
         vm->ip = entry->uptr;
-        fm_run(vm, -1);
+        vm_run(vm, -1);
         vm->ip = ret;
     }
 }
 
 void
-fm_start(struct Fm *vm, char *fun) {
-    struct Entry *e = fm_search(vm, fun);
+vm_start(struct VM *vm, char *fun) {
+    struct Entry *e = vm_search(vm, fun);
     if (e == 0) {
         if (tok_isnumber(fun)) {
             data_push_integer(vm, strtol(fun, 0, 10));
@@ -480,17 +448,17 @@ fm_start(struct Fm *vm, char *fun) {
             return;
         }
     } else {
-        fm_exec(vm, e);
+        vm_exec(vm, e);
     }
 }
 
 struct Entry *
-fm_search(struct Fm *vm, char *fun) {
-    return dict_find(&vm->dict, fun);
+vm_search(struct VM *vm, char *fun) {
+    return dict_find(vm, fun);
 }
 
 void
-fm_inter(struct Fm *vm, const char *text) {
+vm_inter(struct VM *vm, const char *text) {
     char *p = (char *) text;
     char token[256];
 
@@ -507,7 +475,7 @@ fm_inter(struct Fm *vm, const char *text) {
                 p = tok_next(p, token);
                 if (token[0] == ';' && token[1] == 0) {
                     memo_write_u8(vm, vm->memo_it++, Ret);
-                    dict_add(&vm->dict, name, address, Nop);
+                    dict_add(vm, name, address, Nop);
                     break;
                 } else if (token[0] == '(' && token[1] == 0) {
                     p = tok_next(p, token);
@@ -534,7 +502,7 @@ fm_inter(struct Fm *vm, const char *text) {
                         memo_write_u8(vm, vm->memo_it++, token[d]);
                     }
                 } else {
-                    struct Entry *e = fm_search(vm, token);
+                    struct Entry *e = vm_search(vm, token);
                     if (e == 0) {
                         fprintf(stderr, "Function %s not found\n", token);
                         fflush(stderr);
@@ -551,13 +519,13 @@ fm_inter(struct Fm *vm, const char *text) {
                 }
             }
         } else {
-            fm_start(vm, token);
+            vm_start(vm, token);
         }
     }
 }
 
 void
-fm_memo_read(struct Fm *vm, write_to write, void *user_data) {
+vm_memo_read(struct VM *vm, write_to write, void *user_data) {
     u32 offset;
 
     for (offset = 0; offset < vm->memo_it; ++offset) {
@@ -566,7 +534,7 @@ fm_memo_read(struct Fm *vm, write_to write, void *user_data) {
 }
 
 void
-fm_memo_write(struct Fm *vm, read_to read, eof_to eof, void *user_data) {
+vm_memo_write(struct VM *vm, read_to read, eof_to eof, void *user_data) {
     memset(vm->memo, 0, MEM_SIZE);
     memset(vm->data, 0, DATA_SIZE);
     vm->memo_it = 0;

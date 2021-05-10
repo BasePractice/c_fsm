@@ -24,52 +24,52 @@ static int memo_eof_fd(u32 it, FILE *fd) {
 
 int
 main(int argc, char **argv) {
-    struct Fm *vm = fm_create();
+    struct VM *vm = vm_create();
     struct Entry *sum, *dot, *crlf, *base_r;
 
-    fm_inter(vm, "1 BASE_W");
-    fm_inter(vm, ": SUM ( a b -- c ) 10 60 + .\" HELLO\n\" ;");
-    fm_inter(vm, ": PRINT 0 OUT ;");
-    fm_inter(vm, ": CRLF 10 PRINT ;");
-    fm_inter(vm, "SUM . .");
-    fm_inter(vm, "CRLF");
-    fm_inter(vm, "BASE_R .");
+    vm_inter(vm, "1 BASE_W");
+    vm_inter(vm, ": SUM ( a b -- c ) 10 60 + .\" HELLO\n\" ;");
+    vm_inter(vm, ": PRINT 0 OUT ;");
+    vm_inter(vm, ": CRLF 10 PRINT ;");
+    vm_inter(vm, "SUM . .");
+    vm_inter(vm, "CRLF");
+    vm_inter(vm, "BASE_R .");
 
-    sum = fm_search(vm, "SUM");
-    dot = fm_search(vm, ".");
-    crlf = fm_search(vm, "CRLF");
-    base_r = fm_search(vm, "BASE_R");
+    sum = vm_search(vm, "SUM");
+    dot = vm_search(vm, ".");
+    crlf = vm_search(vm, "CRLF");
+    base_r = vm_search(vm, "BASE_R");
 
     fprintf(stdout, "\n");
 
-    fm_exec(vm, sum);
-    fm_exec(vm, dot);
-    fm_exec(vm, dot);
-    fm_exec(vm, crlf);
-    fm_exec(vm, base_r);
-    fm_exec(vm, dot);
+    vm_exec(vm, sum);
+    vm_exec(vm, dot);
+    vm_exec(vm, dot);
+    vm_exec(vm, crlf);
+    vm_exec(vm, base_r);
+    vm_exec(vm, dot);
 
     {
         FILE *fd = fopen("vm.mem", "w");
         if (0 != fd) {
-            fm_memo_read(vm, (write_to) memo_write_fd, fd);
+            vm_memo_read(vm, (write_to) memo_write_fd, fd);
             fclose(fd);
         }
         fd = fopen("vm.mem", "r");
         if (0 != fd) {
-            fm_memo_write(vm, (read_to) memo_read_fd, (eof_to) memo_eof_fd, fd);
+            vm_memo_write(vm, (read_to) memo_read_fd, (eof_to) memo_eof_fd, fd);
             fclose(fd);
         }
     }
 
     fprintf(stdout, "\n");
 
-    fm_exec(vm, sum);
-    fm_exec(vm, dot);
-    fm_exec(vm, dot);
-    fm_exec(vm, crlf);
-    fm_exec(vm, base_r);
-    fm_exec(vm, dot);
+    vm_exec(vm, sum);
+    vm_exec(vm, dot);
+    vm_exec(vm, dot);
+    vm_exec(vm, crlf);
+    vm_exec(vm, base_r);
+    vm_exec(vm, dot);
 
     fprintf(stdout, "\n");
 

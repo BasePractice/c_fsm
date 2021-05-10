@@ -23,38 +23,40 @@ typedef u64 uptr;
 
 struct Entry {
     char *name;
-    char *text;
     uptr uptr;
     u8 opcod;
-    struct Entry *next;
 };
 
 typedef void (*write_to)(u8 *ptr, u32 size, void *user_data);
+
 typedef u8 (*read_to)(u32 it, void *user_data);
+
 typedef int (*eof_to)(u32 it, void *user_data);
 
-struct Fm *
-fm_create();
+struct VM;
+
+struct VM *
+vm_create();
 
 void
-fm_inter(struct Fm *vm, const char *text);
+vm_inter(struct VM *vm, const char *text);
 
 void
-fm_start(struct Fm *vm, char *fun);
+vm_start(struct VM *vm, char *fun);
 
 void
-fm_exec(struct Fm *vm, struct Entry *entry);
+vm_exec(struct VM *vm, struct Entry *entry);
 
 struct Entry *
-fm_search(struct Fm *vm, char *fun);
+vm_search(struct VM *vm, char *fun);
 
 void
-fm_run(struct Fm *vm, unsigned int circles);
+vm_run(struct VM *vm, unsigned int circles);
 
 void
-fm_memo_read(struct Fm *vm, write_to write, void *user_data);
+vm_memo_read(struct VM *vm, write_to write, void *user_data);
 
 void
-fm_memo_write(struct Fm *vm, read_to read, eof_to eof, void *user_data);
+vm_memo_write(struct VM *vm, read_to read, eof_to eof, void *user_data);
 
 #endif
