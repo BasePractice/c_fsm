@@ -8,24 +8,6 @@
 #define DATA_INTEGER 0
 #define DATA_STRING  1
 
-struct VM {
-    u32 base; /* Индекс базового адреса */
-    u32 port;
-    u8 memo[MEM_SIZE];
-    u32 memo_it;
-    u32 ip;
-    u8 data[DATA_SIZE];
-    i32 data_it;
-    uptr call[CALL_SIZE];
-    u32 call_it;
-    struct Entry entry[ENTRY_SIZE];
-    u32 entry_it;
-
-    void (*port_out)(struct VM *vm, u32 port, u8 value);
-
-    u8 (*port_in)(struct VM *vm, u32 port);
-};
-
 enum Instruct {
     Nop = 0x00,
     Ret = 0x01,
@@ -46,10 +28,16 @@ enum Instruct {
 };
 
 static void
-dict_add(struct VM *vm, const char *const name, u32 address, u8 opcod) {
-    vm->entry[vm->entry_it].name = strdup(name);
+dict_add(struct VM *vm, const char *const name, u32 address, u8 opcod, u32 code_size) {
+    size_t len = strlen(name);
+    assert(len < FUN_NAME_SIZE);
+    if (len >= FUN_NAME_SIZE) {
+        len = FUN_NAME_SIZE - 1;
+    }
+    strncpy(vm->entry[vm->entry_it].name, name, len);
     vm->entry[vm->entry_it].uptr = address;
     vm->entry[vm->entry_it].opcod = opcod;
+    vm->entry[vm->entry_it].code_size = code_size;
     vm->entry_it++;
 }
 
@@ -66,13 +54,13 @@ dict_find(struct VM *vm, const char *const name) {
 
 static __inline u8
 data_peek(struct VM *vm) {
-    assert(vm->data_it >= 0);
+    assert(vm->data_it >= 0 && vm->data_it < DATA_SIZE);
     return vm->data[vm->data_it];
 }
 
 static __inline u8
 data_pop(struct VM *vm) {
-    assert(vm->data_it >= 0);
+    assert(vm->data_it >= 0 && vm->data_it < DATA_SIZE);
     return vm->data[vm->data_it--];
 }
 
@@ -230,7 +218,7 @@ vm_run(struct VM *vm, unsigned int circles) {
                     }
                     case DATA_STRING: {
 #if 1
-#warning "Duplicate function for string not implement yet"
+#warning "FIXME: DUP function for string not implement yet"
 #else
                         u32 i, k;
                         u32 len = data_peek_integer_without_type(vm);
@@ -344,23 +332,23 @@ vm_run(struct VM *vm, unsigned int circles) {
 
 static void
 fm_default(struct VM *vm) {
-    dict_add(vm, "+", 0, Add);
-    dict_add(vm, "-", 0, Sub);
-    dict_add(vm, "/", 0, Div);
-    dict_add(vm, "*", 0, Mul);
-    dict_add(vm, "DROP", 0, Drop);
-    dict_add(vm, "DUP", 0, Dup);
-    dict_add(vm, ".", 0, Dot);
-    dict_add(vm, "BASE_W", 0, BaseWrite);
-    dict_add(vm, "BASE_R", 0, BaseRead);
-    dict_add(vm, "IN", 0, PortIn);
-    dict_add(vm, "OUT", 0, PortOut);
-    dict_add(vm, ".\"", 0, PutString);
+    dict_add(vm, "+", 0, Add, 0);
+    dict_add(vm, "-", 0, Sub, 0);
+    dict_add(vm, "/", 0, Div, 0);
+    dict_add(vm, "*", 0, Mul, 0);
+    dict_add(vm, "DROP", 0, Drop, 0);
+    dict_add(vm, "DUP", 0, Dup, 0);
+    dict_add(vm, ".", 0, Dot, 0);
+    dict_add(vm, "BASE_W", 0, BaseWrite, 0);
+    dict_add(vm, "BASE_R", 0, BaseRead, 0);
+    dict_add(vm, "IN", 0, PortIn, 0);
+    dict_add(vm, "OUT", 0, PortOut, 0);
+    dict_add(vm, ".\"", 0, PutString, 0);
 }
 
-struct VM *
-vm_create() {
-    struct VM *vm = (struct VM *) calloc(1, sizeof(struct VM));
+void
+vm_create(struct VM *vm) {
+
     memset(vm->memo, 0, sizeof(vm->memo));
     memset(vm->data, 0, sizeof(vm->data));
     memset(vm->call, 0, sizeof(vm->call));
@@ -375,7 +363,6 @@ vm_create() {
     vm->port_out = port_out;
     vm->port = PORT_STD;
     fm_default(vm);
-    return vm;
 }
 
 static __inline char *
@@ -475,7 +462,7 @@ vm_inter(struct VM *vm, const char *text) {
                 p = tok_next(p, token);
                 if (token[0] == ';' && token[1] == 0) {
                     memo_write_u8(vm, vm->memo_it++, Ret);
-                    dict_add(vm, name, address, Nop);
+                    dict_add(vm, name, address, Nop, vm->memo_it - address);
                     break;
                 } else if (token[0] == '(' && token[1] == 0) {
                     p = tok_next(p, token);

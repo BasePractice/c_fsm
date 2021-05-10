@@ -9,7 +9,7 @@ typedef unsigned long long u64;
 #if defined(_M_IX86)
 typedef u32                uptr;
 #elif defined(_M_X64)
-typedef u64                uptr;
+typedef u64 uptr;
 #else
 typedef u64 uptr;
 #endif
@@ -18,13 +18,33 @@ typedef u64 uptr;
 #define DATA_SIZE          2048
 #define CALL_SIZE          1024
 #define ENTRY_SIZE         256
+#define FUN_NAME_SIZE      10
 
 #define PORT_STD        0
 
 struct Entry {
-    char *name;
+    char name[FUN_NAME_SIZE];
     uptr uptr;
     u8 opcod;
+    u32 code_size;
+};
+
+struct VM {
+    u32 base; /* Индекс базового адреса */
+    u32 port;
+    u8 memo[MEM_SIZE];
+    u32 memo_it;
+    u32 ip;
+    u8 data[DATA_SIZE];
+    i32 data_it;
+    uptr call[CALL_SIZE];
+    u32 call_it;
+    struct Entry entry[ENTRY_SIZE];
+    u32 entry_it;
+
+    void (*port_out)(struct VM *vm, u32 port, u8 value);
+
+    u8 (*port_in)(struct VM *vm, u32 port);
 };
 
 typedef void (*write_to)(u8 *ptr, u32 size, void *user_data);
@@ -35,8 +55,8 @@ typedef int (*eof_to)(u32 it, void *user_data);
 
 struct VM;
 
-struct VM *
-vm_create();
+void
+vm_create(struct VM *);
 
 void
 vm_inter(struct VM *vm, const char *text);
