@@ -43,6 +43,16 @@ bool lexer_next(struct LexerContext *ctx, struct LexerToken *token);
 
 bool lexer_eof(struct LexerContext *ctx);
 
+struct ParserContext;
+
+bool parser_init(struct ParserContext **ctx);
+
+bool parser_parse_string(struct ParserContext *ctx, const char *text);
+
+bool parser_parse_file(struct ParserContext *ctx, const char *filename);
+
+void parser_destroy(struct ParserContext **pparser);
+
 #if defined(__cplusplus)
 }
 #endif

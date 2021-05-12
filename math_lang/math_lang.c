@@ -1,4 +1,3 @@
-#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -64,74 +63,97 @@ static bool lexer_symbol_next(struct LexerContext *ctx) {
     return false;
 }
 
-inline static char lexer_symbol(struct LexerContext *ctx) {
-    assert(ctx->it < ctx->content_size);
-    return ctx->content[ctx->it];
-}
-
 inline static char lexer_symbol_peek(struct LexerContext *ctx) {
     assert(ctx->it < ctx->content_size);
     return ctx->content[ctx->it];
 }
 
-inline static bool lexer_symbol_is(struct LexerContext *ctx, char original) {
-    return lexer_symbol(ctx) == original;
+inline static bool
+
+lexer_symbol_is(struct LexerContext *ctx, char original) {
+    return lexer_symbol_peek(ctx) == original;
 }
 
-inline static bool lexer_symbol_is_digit(struct LexerContext *ctx) {
-    char symbol = lexer_symbol(ctx);
+inline static bool
+
+lexer_symbol_is_digit(struct LexerContext *ctx) {
+    char symbol = lexer_symbol_peek(ctx);
     return symbol >= '0' && symbol <= '9';
 }
 
-inline static bool lexer_symbol_is_dot(struct LexerContext *ctx) {
+inline static bool
+
+lexer_symbol_is_dot(struct LexerContext *ctx) {
     return lexer_symbol_is(ctx, '.');
 }
 
-inline static bool lexer_symbol_is_lpar(struct LexerContext *ctx) {
+inline static bool
+
+lexer_symbol_is_lpar(struct LexerContext *ctx) {
     return lexer_symbol_is(ctx, '(');
 }
 
-inline static bool lexer_symbol_is_rpar(struct LexerContext *ctx) {
+inline static bool
+
+lexer_symbol_is_rpar(struct LexerContext *ctx) {
     return lexer_symbol_is(ctx, ')');
 }
 
-inline static bool lexer_symbol_is_mul(struct LexerContext *ctx) {
+inline static bool
+
+lexer_symbol_is_mul(struct LexerContext *ctx) {
     return lexer_symbol_is(ctx, '*');
 }
 
-inline static bool lexer_symbol_is_plus(struct LexerContext *ctx) {
+inline static bool
+
+lexer_symbol_is_plus(struct LexerContext *ctx) {
     return lexer_symbol_is(ctx, '+');
 }
 
-inline static bool lexer_symbol_is_pol(struct LexerContext *ctx) {
+inline static bool
+
+lexer_symbol_is_pol(struct LexerContext *ctx) {
     return lexer_symbol_is(ctx, '^');
 }
 
-inline static bool lexer_symbol_is_minus(struct LexerContext *ctx) {
+inline static bool
+
+lexer_symbol_is_minus(struct LexerContext *ctx) {
     return lexer_symbol_is(ctx, '-');
 }
 
-inline static bool lexer_symbol_is_div(struct LexerContext *ctx) {
+inline static bool
+
+lexer_symbol_is_div(struct LexerContext *ctx) {
     return lexer_symbol_is(ctx, '/');
 }
 
-inline static bool lexer_symbol_is_alpha(struct LexerContext *ctx) {
-    char symbol = lexer_symbol(ctx);
+inline static bool
+
+lexer_symbol_is_alpha(struct LexerContext *ctx) {
+    char symbol = lexer_symbol_peek(ctx);
     return (symbol >= 'A' && symbol <= 'Z') ||
            (symbol >= 'a' && symbol <= 'z');
 }
 
-inline static bool lexer_symbol_is_space(struct LexerContext *ctx) {
-    char symbol = lexer_symbol(ctx);
+inline static bool
+
+lexer_symbol_is_space(struct LexerContext *ctx) {
+    char symbol = lexer_symbol_peek(ctx);
     return symbol == ' ' || symbol == '\t';
 }
 
-inline static bool lexer_symbol_is_nl(struct LexerContext *ctx) {
-    char symbol = lexer_symbol(ctx);
+inline static bool
+
+lexer_symbol_is_nl(struct LexerContext *ctx) {
+    char symbol = lexer_symbol_peek(ctx);
     return symbol == '\r' || symbol == '\n';
 }
 
-inline static bool lexer_symbol_parse_numeric(struct LexerContext *ctx, struct LexerToken *tok) {
+inline static bool
+
+lexer_symbol_parse_numeric(struct LexerContext *ctx, struct LexerToken *tok) {
     bool ret = true;
     tok->p = ctx->content + ctx->it;
     tok->it_start = ctx->it;
@@ -154,8 +176,9 @@ inline static bool lexer_symbol_parse_numeric(struct LexerContext *ctx, struct L
     return ret;
 }
 
-inline static bool lexer_symbol_parse_id(struct LexerContext *ctx, struct LexerToken *tok) {
-    bool ret = true;
+inline static bool
+
+lexer_symbol_parse_id(struct LexerContext *ctx, struct LexerToken *tok) {
     tok->type = TokenId;
     tok->p = ctx->content + ctx->it;
     tok->it_start = ctx->it;
@@ -169,10 +192,12 @@ inline static bool lexer_symbol_parse_id(struct LexerContext *ctx, struct LexerT
         break;
     }
     tok->it_end = ctx->it;
-    return ret;
+    return true;
 }
 
-inline static bool lexer_symbol_skip(struct LexerContext *ctx) {
+inline static bool
+
+lexer_symbol_skip(struct LexerContext *ctx) {
     while (!lexer_eof(ctx) && (lexer_symbol_is_space(ctx) || lexer_symbol_is_nl(ctx))) {
         if (lexer_symbol_is_nl(ctx)) {
             ctx->line_no++;
@@ -241,5 +266,44 @@ bool lexer_next(struct LexerContext *ctx, struct LexerToken *token) {
         return lexer_symbol_parse_id(ctx, token);
     }
     token->error = "Unknown input token";
+    return false;
+}
+
+struct ParserContext {
+    struct LexerContext *lexer;
+};
+
+bool parser_init(struct ParserContext **pparser) {
+    (*pparser) = calloc(1, sizeof(struct ParserContext));
+    (*pparser)->lexer = 0;
+    return true;
+}
+
+void parser_destroy(struct ParserContext **pparser) {
+    if (pparser && 0 != (*pparser)) {
+        if (0 != (*pparser)->lexer) {
+            lexer_destroy(&(*pparser)->lexer);
+        }
+        free((*pparser));
+    }
+}
+
+static bool parser_parse(struct ParserContext *ctx) {
+    return false;
+}
+
+bool parser_parse_string(struct ParserContext *ctx, const char *text) {
+    if (0 != ctx && 0 != ctx->lexer) {
+        lexer_init_string(&(ctx->lexer), text);
+        return parser_parse(ctx);
+    }
+    return false;
+}
+
+bool parser_parse_file(struct ParserContext *ctx, const char *filename) {
+    if (0 != ctx && 0 != ctx->lexer) {
+        lexer_init_file(&(ctx->lexer), filename);
+        return parser_parse(ctx);
+    }
     return false;
 }
