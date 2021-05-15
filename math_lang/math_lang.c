@@ -215,6 +215,21 @@ bool lexer_eof(struct LexerContext *ctx) {
     return true;
 }
 
+static bool lexer_sync(struct LexerContext *ctx, struct LexerToken *token) {
+    ctx->it = token->it_start;
+    ctx->line_it = token->line_no;
+    return true;
+}
+
+bool lexer_peek(struct LexerContext *ctx, struct LexerToken *token) {
+    size_t it = ctx->it, line_no = ctx->line_no, line_it = ctx->line_it;
+    bool ret = lexer_next(ctx, token);
+    ctx->it = it;
+    ctx->line_no = line_no;
+    ctx->line_it = line_it;
+    return ret;
+}
+
 bool lexer_next(struct LexerContext *ctx, struct LexerToken *token) {
     if (token == 0)
         return false;
@@ -269,13 +284,51 @@ bool lexer_next(struct LexerContext *ctx, struct LexerToken *token) {
     return false;
 }
 
+enum NodeType {
+    RealValue,
+    IntValue,
+    Subroutine,
+    MathDiv,
+    MathMul,
+    MathSub,
+    MathAdd,
+    MathPol,
+    Constant,
+};
+
+struct Node {
+    enum NodeType type;
+    union {
+        struct BinaryOperation {
+            struct Node *left;
+            struct Node *right;
+        } binary;
+        struct Node *root;
+    } un;
+    union {
+        double d_value;
+        long i_value;
+        char *id;
+    } value;
+};
+
+static void node_destroy(struct Node **node) {
+    if (0 != node && 0 != (*node)) {
+        free((*node));
+        (*node) = 0;
+    }
+}
+
 struct ParserContext {
     struct LexerContext *lexer;
+    struct LexerToken token;
+    struct Node *root;
 };
 
 bool parser_init(struct ParserContext **pparser) {
     (*pparser) = calloc(1, sizeof(struct ParserContext));
     (*pparser)->lexer = 0;
+    memset(&(*pparser)->token, 0, sizeof(struct LexerToken));
     return true;
 }
 
@@ -288,12 +341,174 @@ void parser_destroy(struct ParserContext **pparser) {
     }
 }
 
+/*
+ * BNF
+ *
+  Program: Statement
+
+  Statement: SimpleStmt '-' SimpleStmt |
+             SimpleStmt '+' SimpleStmt |
+             SimpleStmt '/' SimpleStmt |
+             SimpleStmt '*' SimpleStmt |
+             SimpleStmt '^' SimpleStmt |
+             SimpleStmt
+
+  Subroutine: Id '(' Statement ')'
+
+  SimpleStmt: Value |
+              '(' Statement ')' |
+              Subroutine
+
+  Value:  Digit+ | Const
+
+  Const:  Id
+ *
+ */
+
+#define LEXER_NEXT lexer_next(ctx->lexer, &ctx->token)
+#define LEXER_PEEK lexer_peek(ctx->lexer, &ctx->token)
+
+static struct Node *parse_statement(struct ParserContext *ctx);
+
+static struct Node *parse_value(struct ParserContext *ctx) {
+    char n_buf[127];
+    struct Node *root = 0;
+    if (ctx->token.type == TokenReal) {
+        root = calloc(1, sizeof(struct Node));
+        root->type = RealValue;
+        memset(n_buf, 0, sizeof(n_buf));
+        memcpy(n_buf, ctx->token.p, ctx->token.it_end - ctx->token.it_start);
+        root->value.d_value = strtod(n_buf, 0);
+        LEXER_NEXT;
+    } else if (ctx->token.type == TokenInt) {
+        root = calloc(1, sizeof(struct Node));
+        root->type = IntValue;
+        memset(n_buf, 0, sizeof(n_buf));
+        memcpy(n_buf, ctx->token.p, ctx->token.it_end - ctx->token.it_start);
+        root->value.i_value = strtol(n_buf, 0, 10);
+        LEXER_NEXT;
+    } else if (ctx->token.type == TokenId) {
+        root = calloc(1, sizeof(struct Node));
+        root->type = Subroutine;
+        memset(n_buf, 0, sizeof(n_buf));
+        memcpy(n_buf, ctx->token.p, ctx->token.it_end - ctx->token.it_start);
+        root->value.id = strdup(n_buf);
+        LEXER_NEXT;
+    }
+    return root;
+}
+
+static struct Node *parse_simple_stmt(struct ParserContext *ctx) {
+    char n_buf[127];
+    struct Node *root = 0;
+
+    if (ctx->token.type == TokenId) {
+        root = calloc(1, sizeof(struct Node));
+        LEXER_PEEK;
+        if (ctx->token.type == TokenLPar) {
+            LEXER_NEXT;
+            root->type = Subroutine;
+            memset(n_buf, 0, sizeof(n_buf));
+            memcpy(n_buf, ctx->token.p, ctx->token.it_end - ctx->token.it_start);
+            root->value.id = strdup(n_buf);
+            root->un.root = parse_statement(ctx);
+        } else {
+            root->type = Constant;
+            memset(n_buf, 0, sizeof(n_buf));
+            memcpy(n_buf, ctx->token.p, ctx->token.it_end - ctx->token.it_start);
+            root->value.id = strdup(n_buf);
+        }
+    } else if (ctx->token.type == TokenLPar) {
+        root = parse_statement(ctx);
+        if (LEXER_PEEK && ctx->token.type == TokenRPar) {
+            LEXER_NEXT;
+        } else {
+            node_destroy(&root);
+        };
+    } else {
+        return parse_value(ctx);
+    }
+    return root;
+}
+
+
+static struct Node *parse_statement(struct ParserContext *ctx) {
+    struct Node *root = 0;
+
+    LEXER_PEEK;
+    root = parse_simple_stmt(ctx);
+    if (root) {
+        LEXER_PEEK;
+        switch (ctx->token.type) {
+            case TokenDiv: {
+                struct Node *d = calloc(1, sizeof(struct Node));
+
+                LEXER_NEXT;
+                LEXER_NEXT;
+                d->type = MathDiv;
+                d->un.binary.left = root;
+                d->un.binary.right = parse_simple_stmt(ctx);
+                return root;
+            }
+            case TokenMul: {
+                struct Node *d = calloc(1, sizeof(struct Node));
+
+                LEXER_NEXT;
+                LEXER_NEXT;
+                d->type = MathMul;
+                d->un.binary.left = root;
+                d->un.binary.right = parse_simple_stmt(ctx);
+                return root;
+            }
+            case TokenMinus: {
+                struct Node *d = calloc(1, sizeof(struct Node));
+
+                LEXER_NEXT;
+                LEXER_NEXT;
+                d->type = MathSub;
+                d->un.binary.left = root;
+                d->un.binary.right = parse_simple_stmt(ctx);
+                return root;
+            }
+            case TokenPlus: {
+                struct Node *d = calloc(1, sizeof(struct Node));
+
+                LEXER_NEXT;
+                LEXER_NEXT;
+                d->type = MathAdd;
+                d->un.binary.left = root;
+                d->un.binary.right = parse_simple_stmt(ctx);
+                return root;
+            }
+            case TokenPol: {
+                struct Node *d = calloc(1, sizeof(struct Node));
+
+                LEXER_NEXT;
+                LEXER_NEXT;
+                d->type = MathPol;
+                d->un.binary.left = root;
+                d->un.binary.right = parse_simple_stmt(ctx);
+                return root;
+            }
+            default: {
+                fprintf(stderr, "Expected math operation, but found %.*s\n",
+                        (int) (ctx->token.it_end - ctx->token.it_start),
+                        ctx->token.p);
+                node_destroy(&root);
+                break;
+            }
+        }
+    }
+    return root;
+}
+
 static bool parser_parse(struct ParserContext *ctx) {
-    return false;
+    ctx->root = parse_statement(ctx);
+    return 0 != ctx->root;
 }
 
 bool parser_parse_string(struct ParserContext *ctx, const char *text) {
-    if (0 != ctx && 0 != ctx->lexer) {
+    if (0 != ctx) {
         lexer_init_string(&(ctx->lexer), text);
         return parser_parse(ctx);
     }

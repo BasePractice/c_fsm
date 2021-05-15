@@ -57,7 +57,7 @@ static void test_parser(const char *text) {
 
 int main() {
     test_lexer("(3 * 8)/6 + 1 - sin(1.5667)");
-    test_parser("(3 * 8)/6 + 1 - sin(1.5667)");
+    test_parser("5 + (3 * 8)/6 + 1 - sin(1.5667)");
     return EXIT_SUCCESS;
 }
 

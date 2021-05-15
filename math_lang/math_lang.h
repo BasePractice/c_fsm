@@ -41,6 +41,8 @@ void lexer_destroy(struct LexerContext **ctx);
 
 bool lexer_next(struct LexerContext *ctx, struct LexerToken *token);
 
+bool lexer_peek(struct LexerContext *ctx, struct LexerToken *token);
+
 bool lexer_eof(struct LexerContext *ctx);
 
 struct ParserContext;
