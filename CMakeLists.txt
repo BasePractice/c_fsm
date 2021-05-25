@@ -4,6 +4,9 @@ project(c_fsm C CXX)
 set(CMAKE_C_STANDARD 90)
 set(CMAKE_CXX_STANDARD 20)
 
+include(PVS-Studio.cmake)
+#-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+#pvs-studio-analyzer credentials PVS-Studio Free FREE-FREE-FREE-FREE
 option(MEMORY_DEBUG "Debugging allocate memoty" OFF)
 
 include_directories(include)
@@ -30,3 +33,8 @@ add_subdirectory(microc)
 add_subdirectory(pneumo_ctrl)
 add_subdirectory(regexp)
 add_subdirectory(turing)
+
+add_custom_target(ANALYZE
+        COMMAND pvs-studio-analyzer analyze -o ${CMAKE_BINARY_DIR}/project.log -j4
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        )

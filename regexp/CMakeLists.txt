@@ -8,3 +8,16 @@ add_executable(${PROJECT_NAME}_isbn regexp_isbn.c)
 add_executable(${PROJECT_NAME}_tags regexp_tags.c)
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/simulate.isbn.t DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+pvs_studio_add_target(TARGET ${PROJECT_NAME}_isbn.analyze ALL
+        OUTPUT FORMAT errorfile
+        ANALYZE ${PROJECT_NAME}_isbn
+        MODE GA:1,2
+        C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
+        LOG ${PROJECT_NAME}_isbn.err)
+pvs_studio_add_target(TARGET ${PROJECT_NAME}_tags.analyze ALL
+        OUTPUT FORMAT errorfile
+        ANALYZE ${PROJECT_NAME}_tags
+        MODE GA:1,2
+        C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
+        LOG ${PROJECT_NAME}_tags.err)

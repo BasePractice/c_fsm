@@ -1,3 +1,5 @@
+// This is an open source non-commercial project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -169,7 +171,8 @@ static bool automate(struct Engine *engine, int character) {
                     engine->state = FAILURE;
                 }
             } else if (engine->tag[engine->tag_it++] == character) {
-                engine->state = TAG2_MEMORY;
+                /*warning: V1048 The 'engine->state' variable was assigned the same value.*/
+                /*engine->state = TAG2_MEMORY;*/
             } else {
                 engine->state = FAILURE;
             }
