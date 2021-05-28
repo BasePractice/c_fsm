@@ -11,3 +11,12 @@ add_executable(${PROJECT_NAME}_coin fsm_coin.c fsm_coin.h fsm_coin_main.c)
 add_executable(${PROJECT_NAME}_welding fsm_welding.c fsm_welding.h fsm_welding_main.c)
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/simulate.bulk.t DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+if (ANALYZE_ENABLE)
+    pvs_studio_add_target(TARGET ${PROJECT_NAME}_bulk.analyze ALL
+            OUTPUT FORMAT errorfile
+            ANALYZE ${PROJECT_NAME}_bulk
+            MODE GA:1,2
+            C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
+            LOG ${PROJECT_NAME}_bulk.err)
+endif ()

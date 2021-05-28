@@ -23,7 +23,7 @@ static int read_coin(FILE *in) {
             fflush(in);
             continue;
         }
-        buf[buf_i++] = ch;
+        buf[buf_i++] = (char)ch;
     }
     buf[buf_i] = 0;
     d = (int) strtol(buf, 0, 10);

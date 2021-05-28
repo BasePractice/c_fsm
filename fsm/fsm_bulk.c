@@ -1,5 +1,8 @@
+// This is an open source non-commercial project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <stdlib.h>
 #include <stdarg.h>
+#include <assert.h>
 #include "fsm_bulk.h"
 
 struct FSM;
@@ -50,11 +53,15 @@ inline void memory_set_bit(uint8_t *mem, const uint8_t bit) {
 #else
 
 inline void memory_set_bit(uint8_t *mem, const uint8_t bit) {
-    *((uint64_t *) mem) |= (1 << bit);
+    if (bit < 32) {
+        *((uint64_t *) mem) |= (1 << bit);
+    }
 }
 
 inline void memory_reset_bit(uint8_t *mem, const uint8_t bit) {
-    *((uint64_t *) mem) &= ~(1 << bit);
+    if (bit < 32) {
+        *((uint64_t *) mem) &= (uint64_t)~(1 << bit);
+    }
 }
 
 #endif
@@ -101,7 +108,9 @@ inline bool memory_get_bit(const uint8_t *const mem, const uint8_t bit) {
 }
 #else
 
-inline bool memory_get_bit(const uint8_t *const mem, const uint8_t bit) {
+inline bool
+
+memory_get_bit(const uint8_t *const mem, const uint8_t bit) {
     return (*((uint64_t *) mem) >> bit) & 0x01;
 }
 
@@ -153,7 +162,6 @@ static void fsm_default_print_err(const char *format, ...) {
 }
 
 void read_sequence(uint8_t sequence[4], uint32_t input) {
-    sequence[0] = sequence[1] = sequence[2] = sequence[3] = 0;
     input %= 10000;
     sequence[0] = input / 1000;
     input %= 1000;
@@ -166,6 +174,8 @@ void read_sequence(uint8_t sequence[4], uint32_t input) {
 
 struct FSM *fsm_create(char *filename, uint32_t sequence, bool debug) {
     struct FSM *fsm = (struct FSM *) calloc(sizeof(struct FSM), 1);
+    if (0 == fsm)
+        return 0;
     fsm->fd = fopen(filename, "r");
     fsm->state = PowerOn;
     fsm->debug = debug;
@@ -362,10 +372,7 @@ void print_state(struct FSM *fsm) {
             text = "Unknown";
             break;
     }
-
-    if (text != 0) {
-        (*fsm->print_std)("%s", text);
-    }
+    (*fsm->print_std)("%s", text);
 }
 
 void fsm_signal(struct FSM *fsm, enum Signal signal, uint8_t count) {
