@@ -8,6 +8,7 @@ include(PVS-Studio.cmake)
 #-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 #pvs-studio-analyzer credentials PVS-Studio Free FREE-FREE-FREE-FREE
 option(MEMORY_DEBUG "Debugging allocate memoty" OFF)
+option(ANALYZE_ENABLE "Включение PVS анализатора кода" OFF)
 
 include_directories(include)
 
@@ -24,6 +25,7 @@ if (GUI)
     endif ()
 endif ()
 
+add_subdirectory(common)
 add_subdirectory(clever_ant)
 add_subdirectory(forth)
 add_subdirectory(fsm)
@@ -33,8 +35,3 @@ add_subdirectory(microc)
 add_subdirectory(pneumo_ctrl)
 add_subdirectory(regexp)
 add_subdirectory(turing)
-
-add_custom_target(ANALYZE
-        COMMAND pvs-studio-analyzer analyze -o ${CMAKE_BINARY_DIR}/project.log -j4
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        )

@@ -6,10 +6,10 @@ void print_type(struct Engine *engine) {
 	int i;
 
 	for (i = 0; i < TAPE_LIMIT; ++i) {
-		int ch = *(engine_type_get(engine, i));
+		char ch = *(engine_type_get(engine, i));
 		if (ch == EMPTY_SYMBOL)
 			continue;
-		fprintf(stdout, "%c", (char)ch);
+		fprintf(stdout, "%c", ch);
 	}
 	fprintf(stdout, "\n");
 	fflush(stdout);
