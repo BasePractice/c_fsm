@@ -1,3 +1,5 @@
+// This is an open source non-commercial project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <stdbool.h>
 #include "fsm_welding.h"
 
@@ -27,7 +29,7 @@ static void automate_tick(struct Automate *automate, enum InputSignal signal) {
         }
         case AUTOMATE_WELDING: {
             if (signal == WELDING_ON) {
-                automate->state = AUTOMATE_WELDING;
+//                automate->state = AUTOMATE_WELDING;
             } else {
                 automate->state = AUTOMATE_T_C;
                 automate->time_tick = 0;
@@ -44,7 +46,7 @@ static void automate_tick(struct Automate *automate, enum InputSignal signal) {
             break;
         }
         case AUTOMATE_COMPLETE: {
-            automate->state = AUTOMATE_COMPLETE;
+//            automate->state = AUTOMATE_COMPLETE;
             break;
         }
     }
@@ -88,7 +90,7 @@ void engine_tick(struct Engine *engine, enum InputSignal signal) {
                 engine->state = ENGINE_WELDING_RAS_ON;
                 engine->time_tick = 0;
             } else {
-                engine->state = ENGINE_WELDING_OFF;
+//                engine->state = ENGINE_WELDING_OFF;
             }
             break;
         }
@@ -118,7 +120,7 @@ void engine_tick(struct Engine *engine, enum InputSignal signal) {
                 if (welding) {
                     engine->state = ENGINE_WELDING_RUNNING;
                 } else {
-                    engine->state = ENGINE_WELDING_RUN_AUTOMATE;
+//                    engine->state = ENGINE_WELDING_RUN_AUTOMATE;
                 }
             } else {
                 engine->state = ENGINE_WELDING_COMPLETE_AUTOMATE;

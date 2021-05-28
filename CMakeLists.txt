@@ -10,6 +10,8 @@ include(PVS-Studio.cmake)
 option(MEMORY_DEBUG "Debugging allocate memoty" OFF)
 option(ANALYZE_ENABLE "Включение PVS анализатора кода" OFF)
 
+set(ANALYZE_MODE "GA:1,2")
+
 include_directories(include)
 
 if (MEMORY_DEBUG)

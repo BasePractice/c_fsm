@@ -16,3 +16,12 @@ if (GUI)
     target_link_libraries(${PROJECT_NAME}_ui PUBLIC ${PROJECT_NAME}_Library raylib)
     target_compile_definitions(${PROJECT_NAME}_ui PUBLIC -DPLATFORM_DESKTOP -DGL_SILENCE_DEPRECATION)
 endif ()
+
+if (ANALYZE_ENABLE)
+    pvs_studio_add_target(TARGET ${PROJECT_NAME}_main.analyze ALL
+            OUTPUT FORMAT errorfile
+            ANALYZE ${PROJECT_NAME}_main
+            MODE ${ANALYZE_MODE}
+            C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
+            LOG ${PROJECT_NAME}_main.err)
+endif ()

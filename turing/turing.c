@@ -1,3 +1,5 @@
+// This is an open source non-commercial project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -49,6 +51,7 @@ char_list_find(struct CharList *list, char ch) {
             return i;
     }
     assert(0);
+    return -1;
 }
 
 struct Engine *
@@ -57,9 +60,25 @@ engine_create(int symbols, int states, char init_state) {
     struct Engine *engine;
 
     engine = calloc(sizeof(struct Engine), 1);
+    if (0 == engine)
+        return 0;
     engine->references = (struct Reference **) calloc(symbols * sizeof(struct Reference *), 1);
+    if (0 == engine->references) {
+        free(engine);
+        return 0;
+    }
     for (i = 0; i < symbols; ++i) {
         engine->references[i] = (struct Reference *) calloc(sizeof(struct Reference) * states, 1);
+        if (0 == engine->references[i]) {
+            int k;
+
+            for (k = 0; k < i; ++k) {
+                free(engine->references[k]);
+            }
+            free(engine->references);
+            free(engine);
+            return 0;
+        }
     }
     engine->state = init_state;
     engine->current_i = TAPE_LIMIT / 2;

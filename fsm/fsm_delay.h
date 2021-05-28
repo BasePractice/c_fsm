@@ -1,3 +1,5 @@
+// This is an open source non-commercial project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #ifndef C_AUTOMATA_PROGRAMMING_PRACTICE_DELAY_FSM_H
 #define C_AUTOMATA_PROGRAMMING_PRACTICE_DELAY_FSM_H
 #include <stdbool.h>

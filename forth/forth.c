@@ -1,3 +1,5 @@
+// This is an open source non-commercial project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -298,7 +300,7 @@ vm_run(struct VM *vm, unsigned int circles) {
             }
             case Ret: {
                 const u32 address = vm->call[--vm->call_it];
-                vm->ip++;
+//                vm->ip++;
                 vm->ip = address;
                 if (address == 0xffffffff) {
                     is_running = 0;

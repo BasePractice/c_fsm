@@ -14,7 +14,7 @@ if (ANALYZE_ENABLE)
     pvs_studio_add_target(TARGET ${PROJECT_NAME}_string.analyze ALL
             OUTPUT FORMAT errorfile
             ANALYZE ${PROJECT_NAME}_string
-            MODE GA:1,2
+            MODE ${ANALYZE_MODE}
             C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
             LOG ${PROJECT_NAME}_string.err)
 endif ()

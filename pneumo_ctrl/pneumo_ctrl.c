@@ -1,4 +1,5 @@
-#include <stdio.h>
+// This is an open source non-commercial project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <limits.h>
 #include "pneumo_ctrl.h"
 
@@ -89,11 +90,11 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
                 if (DELAY_GE(engine)) {
                     engine->state = PneumoState_2;
                     engine->delay = 0;
-                    engine->timeout = 0;
+//                    engine->timeout = 0;
                 }
             } else if (TIMEOUT_GE(engine)) {
                 engine->state = PneumoState_6;
-                engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal = 0;
+//                engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal = 0;
                 engine->cylinders[PNEUMO_CYLINDER_Y2].output_signal = 0;
                 engine->delay = 0;
                 engine->timeout = 0;
@@ -107,7 +108,7 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
                 if (DELAY_GE(engine)) {
                     engine->state = PneumoState_3;
                     engine->delay = 0;
-                    engine->timeout = 0;
+//                    engine->timeout = 0;
                 }
             } else if (TIMEOUT_GE(engine)) {
                 engine->state = PneumoState_FatalException;
@@ -125,7 +126,7 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
                 if (DELAY_GE(engine)) {
                     engine->state = PneumoState_4;
                     engine->delay = 0;
-                    engine->timeout = 0;
+//                    engine->timeout = 0;
                 }
             } else if (TIMEOUT_GE(engine)) {
                 engine->state = PneumoState_FatalException;
@@ -143,11 +144,11 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
                 if (DELAY_GE(engine)) {
                     engine->state = PneumoState_5;
                     engine->delay = 0;
-                    engine->timeout = 0;
+//                    engine->timeout = 0;
                 }
             } else if (TIMEOUT_GE(engine)) {
                 engine->state = PneumoState_FatalException;
-                engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal = 0;
+//                engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal = 0;
                 engine->cylinders[PNEUMO_CYLINDER_Y2].output_signal = 0;
                 engine->delay = 0;
                 engine->timeout = 0;
@@ -161,7 +162,7 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
                 if (DELAY_GE(engine)) {
                     engine->state = PneumoState_6;
                     engine->delay = 0;
-                    engine->timeout = 0;
+//                    engine->timeout = 0;
                 }
             } else if (TIMEOUT_GE(engine)) {
                 engine->state = PneumoState_FatalException;
@@ -181,7 +182,7 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
                 if (DELAY_GE(engine)) {
                     engine->state = PneumoState_7;
                     engine->delay = 0;
-                    engine->timeout = 0;
+//                    engine->timeout = 0;
                 }
             } else if (TIMEOUT_GE(engine)) {
                 engine->state = PneumoState_FatalException;
@@ -199,11 +200,11 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
                 if (DELAY_GE(engine)) {
                     engine->state = PneumoState_8;
                     engine->delay = 0;
-                    engine->timeout = 0;
+//                    engine->timeout = 0;
                 }
             } else if (TIMEOUT_GE(engine)) {
                 engine->state = PneumoState_FatalException;
-                engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal = 0;
+//                engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal = 0;
                 engine->cylinders[PNEUMO_CYLINDER_Y2].output_signal = 0;
                 engine->delay = 0;
                 engine->timeout = 0;
@@ -217,7 +218,7 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
                 if (DELAY_GE(engine)) {
                     engine->state = PneumoState_9;
                     engine->delay = 0;
-                    engine->timeout = 0;
+//                    engine->timeout = 0;
                 }
             } else if (TIMEOUT_GE(engine)) {
                 engine->state = PneumoState_FatalException;
@@ -235,11 +236,11 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
                 if (DELAY_GE(engine)) {
                     engine->state = PneumoState_1;
                     engine->delay = 0;
-                    engine->timeout = 0;
+//                    engine->timeout = 0;
                 }
             } else if (TIMEOUT_GE(engine)) {
                 engine->state = PneumoState_FatalException;
-                engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal = 0;
+//                engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal = 0;
                 engine->cylinders[PNEUMO_CYLINDER_Y2].output_signal = 0;
                 engine->delay = 0;
                 engine->timeout = 0;

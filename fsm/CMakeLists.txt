@@ -16,7 +16,31 @@ if (ANALYZE_ENABLE)
     pvs_studio_add_target(TARGET ${PROJECT_NAME}_bulk.analyze ALL
             OUTPUT FORMAT errorfile
             ANALYZE ${PROJECT_NAME}_bulk
-            MODE GA:1,2
+            MODE ${ANALYZE_MODE}
             C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
             LOG ${PROJECT_NAME}_bulk.err)
+    pvs_studio_add_target(TARGET ${PROJECT_NAME}_insert.analyze ALL
+            OUTPUT FORMAT errorfile
+            ANALYZE ${PROJECT_NAME}_insert
+            MODE ${ANALYZE_MODE}
+            C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
+            LOG ${PROJECT_NAME}_insert.err)
+    pvs_studio_add_target(TARGET ${PROJECT_NAME}_delay.analyze ALL
+            OUTPUT FORMAT errorfile
+            ANALYZE ${PROJECT_NAME}_delay
+            MODE ${ANALYZE_MODE}
+            C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
+            LOG ${PROJECT_NAME}_delay.err)
+    pvs_studio_add_target(TARGET ${PROJECT_NAME}_coin.analyze ALL
+            OUTPUT FORMAT errorfile
+            ANALYZE ${PROJECT_NAME}_coin
+            MODE ${ANALYZE_MODE}
+            C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
+            LOG ${PROJECT_NAME}_coin.err)
+    pvs_studio_add_target(TARGET ${PROJECT_NAME}_welding.analyze ALL
+            OUTPUT FORMAT errorfile
+            ANALYZE ${PROJECT_NAME}_welding
+            MODE ${ANALYZE_MODE}
+            C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
+            LOG ${PROJECT_NAME}_welding.err)
 endif ()
