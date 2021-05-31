@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <memory.h>
-#include <ctype.h>
+#include <string.h>
 
 /**
  1. 3664600, 36752124600, 367535124600, 368508124600
@@ -227,7 +227,8 @@ int main(int argc, char **argv) {
     for (i = 0; i < sizeof(tests) / sizeof(tests[0]); ++i) {
         regexp_init(&regexp, tests[i].text);
         result = regexp_execute(&regexp);
-        fprintf(stdout, "%20s: %s\n", regexp.text, result == tests[i].result ? "SUCCESS" : "FAILURE");
+        fprintf(stdout, "%20s[%4s]: %s\n",
+                regexp.text, tests[i].result ? "GOOD" : "BAD", result == tests[i].result ? "SUCCESS" : "FAILURE");
         fflush(stdout);
         regexp_destroy(&regexp);
     }
