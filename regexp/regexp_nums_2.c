@@ -27,6 +27,9 @@ enum RegexpState {
     STATE_S1_1, STATE_S1_2, STATE_S1_3, STATE_S1_4, STATE_S1_5, STATE_S1_6,
     STATE_S1_7, STATE_S1_8, STATE_S1_9, STATE_S1_10, STATE_S1_11,
 
+    STATE_S2_1, STATE_S2_2, STATE_S2_3, STATE_S2_4, STATE_S2_5, STATE_S2_6,
+    STATE_S2_7, STATE_S2_8,
+
     STATE_ERROR, STATE_END
 };
 
@@ -60,6 +63,8 @@ static void regexp_do(struct Regexp *regexp, char ch) {
         case STATE_BEGIN: {
             if ('3' == ch) {
                 regexp->state = STATE_S1_1;
+            } else if ('1' == ch) {
+                regexp->state = STATE_S2_1;
             } else {
                 regexp->state = STATE_ERROR;
             }
@@ -81,6 +86,9 @@ static void regexp_do(struct Regexp *regexp, char ch) {
             }
             break;
         }
+
+        /*1-ая группа*/
+
         case STATE_S1_1: {
             if ('6' == ch) {
                 regexp->state = STATE_S1_2;
@@ -183,7 +191,84 @@ static void regexp_do(struct Regexp *regexp, char ch) {
             }
             break;
         }
+
+        /*2-ая группа*/
+
+        case STATE_S2_1: {
+            if ('2' == ch) {
+                regexp->state = STATE_S2_2;
+            } else {
+                regexp->state = STATE_ERROR;
+            }
+            break;
+        }
+        case STATE_S2_2: {
+            if ('6' == ch || '7' == ch) {
+                regexp->state = STATE_S2_4;
+            } else if ('9' == ch) {
+                regexp->state = STATE_S2_3;
+            } else {
+                regexp->state = STATE_ERROR;
+            }
+            break;
+        }
+        case STATE_S2_3: {
+            if ('2' == ch) {
+                regexp->state = STATE_S2_5;
+            } else {
+                regexp->state = STATE_ERROR;
+            }
+            break;
+        }
+        case STATE_S2_4: {
+            if ('9' == ch) {
+                regexp->state = STATE_S2_3;
+            } else {
+                regexp->state = STATE_ERROR;
+            }
+            break;
+        }
+        case STATE_S2_5: {
+            if ('0' <= ch && '9' >= ch) {
+                regexp->state = STATE_S2_6;
+            } else {
+                regexp->state = STATE_ERROR;
+            }
+            break;
+        }
+        case STATE_S2_6: {
+            if ('1' == ch) {
+                regexp->state = STATE_S2_7;
+            } else {
+                regexp->state = STATE_ERROR;
+            }
+            break;
+        }
+        case STATE_S2_7: {
+            if ('0' == ch) {
+                regexp->state = STATE_S2_7;
+            } else if ('3' == ch) {
+                regexp->state = STATE_S2_8;
+            } else {
+                regexp->state = STATE_ERROR;
+            }
+            break;
+        }
+        case STATE_S2_8: {
+            if ('0' == ch) {
+                regexp->state = STATE_K_1;
+            } else if ('6' == ch) {
+                regexp->state = STATE_K;
+            } else {
+                regexp->state = STATE_ERROR;
+            }
+            break;
+        }
+
+        /*3-я группа*/
+
         default:
+        case STATE_END:
         case STATE_ERROR: {
             break;
         }
