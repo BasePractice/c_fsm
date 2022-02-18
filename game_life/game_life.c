@@ -24,6 +24,7 @@ void init_world(struct World *w, size_t width, size_t height, const char *filena
             c[y].value = value;
             c[y].x = x;
             c[y].y = y;
+            c[y].current_state = c[y].previous_state = DEAD;
         }
         w->cells[x] = c;
     }
@@ -243,4 +244,19 @@ void toggle_live_world(struct World *w, size_t x, size_t y, int value) {
     c->previous_state = state;
     c->current_state = state;
     c->value = value;
+}
+
+void destroy_world(struct World *w) {
+    if (w && w->cells) {
+        size_t x, y;
+        for (x = 0; x < w->width; ++x) {
+            if (w->cells[x]) {
+                free(w->cells[x]);
+            }
+        }
+        free(w->cells);
+        w->cells = 0;
+        w->width = 0;
+        w->height = 0;
+    }
 }

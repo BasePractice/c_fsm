@@ -139,6 +139,8 @@ int main(void) {
     int win_width = WINDOW_WIDTH, win_height = WINDOW_HEIGHT, quad_size = 50, quad_changed_size = 50;
     int i_figure = -1;
     bool running = false, next = false, drawing = false, clear = false, mark = false;
+    bool load = false, store = false, step = false, filename_input = false;
+    char filename[256] = {"./export.txt"};
     struct World w = {0};
     enum State state = Initialize;
 
@@ -159,6 +161,7 @@ int main(void) {
                    false);
         control_y += CONTROL_HEIGHT;
         running = GuiToggle((Rectangle) {control_x, control_y, 45, CONTROL_HEIGHT}, "Running", running);
+        step = GuiButton((Rectangle) {control_x + 45 + PADDING_Y, control_y, 45, CONTROL_HEIGHT}, "Step");
         control_y += CONTROL_HEIGHT;
         DrawText(TextFormat("STEP: %d", steps), control_x, control_y, 10,
                  (steps >= 2000) ? MAROON : DARKGRAY);
@@ -183,7 +186,14 @@ int main(void) {
         control_y += CONTROL_HEIGHT + PADDING_Y;
         mark = GuiToggle((Rectangle) {control_x, control_y, 50, CONTROL_HEIGHT}, "Mark", mark);
         control_y += CONTROL_HEIGHT + PADDING_Y;
-
+        control_y = 690 + PADDING_Y;
+        control_x += 60 + PADDING_X;
+        load = GuiButton((Rectangle) {control_x, control_y, 50, CONTROL_HEIGHT}, "Load");
+        control_y += CONTROL_HEIGHT + PADDING_Y;
+        store = GuiButton((Rectangle) {control_x, control_y, 50, CONTROL_HEIGHT}, "Store");
+        control_x += PADDING_X;
+        filename_input = GuiTextBox((Rectangle) {control_x + 50 + PADDING_X, control_y, 150, CONTROL_HEIGHT}, filename,
+                                    sizeof(filename), true);
 
         if (drawing) {
             int x = GetMouseX();
@@ -206,6 +216,53 @@ int main(void) {
                     fprintf(stdout, "Illegal. {%d, %d}\n", i_x, i_y);
                 };
             }
+        } else if (load) {
+            FILE *fd = fopen(filename, "r");
+            if (fd != 0) {
+                size_t x, y, value, count, input = 0;
+
+                fscanf(fd, "%d\n", &quad_size);
+                fscanf(fd, "%d\n", &count);
+                quad_changed_size = quad_size;
+                w_width = ((win_width - 10) / quad_size) - 1;
+                w_height = ((win_height - 100) / quad_size) - 1;
+                destroy_world(&w);
+                init_world(&w, w_width, w_height, 0, COLOR_DEFAULT);
+                clean_world(&w, COLOR_DEFAULT);
+                while (!feof(fd) && ++input < count) {
+                    x = 0, y = 0, value = 0;
+                    fscanf(fd, "%d %d %d\n", &x, &y, &value);
+                    toggle_live_world(&w, x, y, value);
+                }
+                fclose(fd);
+                w.state = PRESET;
+                state = Running;
+            }
+        } else if (store) {
+            FILE *fd = fopen(filename, "w+");
+            if (fd != 0) {
+                size_t x, y, count = 0;
+
+                fprintf(fd, "%d\n", quad_size);
+                for (x = 0; x < w.width; ++x) {
+                    for (y = 0; y < w.height; ++y) {
+                        struct Cell *c = cell(&w, x, y);
+                        if (c->current_state == ALIVE) {
+                            ++count;
+                        }
+                    }
+                }
+                fprintf(fd, "%d\n", (int)count);
+                for (x = 0; x < w.width; ++x) {
+                    for (y = 0; y < w.height; ++y) {
+                        struct Cell *c = cell(&w, x, y);
+                        if (c->current_state == ALIVE) {
+                            fprintf(fd, "%d %d %d\n", x, y, c->value);
+                        }
+                    }
+                }
+                fclose(fd);
+            }
         } else if (clear) {
             clean_world(&w, COLOR_DEFAULT);
         } else {
@@ -213,6 +270,7 @@ int main(void) {
                 case PreSet: {
                     w_width = ((win_width - 10 - quad_size) / quad_size) - 1;
                     w_height = ((win_height - 100 - quad_size) / quad_size) - 1;
+                    destroy_world(&w);
                     init_world(&w, w_width, w_height, 0, COLOR_DEFAULT);
                     preset_world(&w, figures[i_figure].width, figures[i_figure].coord, figures[i_figure].coord_size, COLOR_DEFAULT);
                     poll_world(&w);
@@ -224,6 +282,7 @@ int main(void) {
                 case Initialize: {
                     w_width = ((win_width - 10) / quad_size) - 1;
                     w_height = ((win_height - 100) / quad_size) - 1;
+                    destroy_world(&w);
                     init_world(&w, w_width, w_height, 0, COLOR_DEFAULT);
                     poll_world(&w);
                     state = Running;
@@ -245,8 +304,15 @@ int main(void) {
                         state = Initialize;
                         break;
                     }
-                    if (false == running)
+                    if (false == running) {
+                        if (true == step) {
+                            tick_gen = 0;
+                            poll_world(&w);
+                            poll_world(&w);
+                            steps++;
+                        }
                         break;
+                    }
                     if (tick_gen + speed < 0) {
                         tick_gen++;
                     } else {

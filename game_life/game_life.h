@@ -34,6 +34,7 @@ struct World {
 };
 
 void init_world(struct World *w, size_t width, size_t height, const char *filename, int value);
+void destroy_world(struct World *w);
 void preset_world(struct World *w, size_t preset_width, struct Cell *cell, size_t cell_size, int value);
 void poll_world(struct World *w);
 void clean_world(struct World *w, int value);
