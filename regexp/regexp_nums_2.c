@@ -246,7 +246,7 @@ static void regexp_do(struct Regexp *regexp, char ch) {
         }
         case STATE_S2_7: {
             if ('0' == ch) {
-                regexp->state = STATE_S2_7;
+//                regexp->state = STATE_S2_7;
             } else if ('3' == ch) {
                 regexp->state = STATE_S2_8;
             } else {
