@@ -17,7 +17,7 @@
 int main() {
     struct World w;
 
-    init_world(&w, 10, 10, "complete.txt");
+    init_world(&w, 10, 10, "complete.txt", 0);
     while (w.running) {
         poll_world(&w);
     }
