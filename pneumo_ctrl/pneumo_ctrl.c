@@ -53,6 +53,9 @@ void pneumo_engine_init(struct PneumoEngine *engine) {
         engine->delays[PneumoState_8] = DELAY_DELTA(60);
         engine->timeouts[PneumoState_9] = TIMEOUT_DELTA(200);
         engine->delays[PneumoState_9] = DELAY_DELTA(10);
+#if defined(PNEUMO_DEBUG)
+        engine->line = 0;
+#endif
     }
 }
 
@@ -246,7 +249,7 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
     engine->delay++;
 #if defined(PNEUMO_DEBUG)
     fprintf(stdout, "[%05d] State: %s, Y1(in): [%d, %d], Y2(in): [%d, %d], Y1(out): [%d], Y2(out): [%d]\n",
-            ++n,
+            ++engine->line,
             state_names[engine->state],
             engine->cylinders[PNEUMO_CYLINDER_Y1].input_signal[PNEUMO_CYLINDER_SIGNAL_UP],
             engine->cylinders[PNEUMO_CYLINDER_Y1].input_signal[PNEUMO_CYLINDER_SIGNAL_DOWN],

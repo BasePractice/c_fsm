@@ -33,6 +33,9 @@ struct PneumoEngine {
     int timeouts[PneumoState_FatalException];
     int delays[PneumoState_FatalException];
     struct PneumoCylinder cylinders[2];
+#if defined(PNEUMO_DEBUG)
+    int line;
+#endif
 };
 
 void pneumo_engine_init(struct PneumoEngine *engine);
