@@ -8,8 +8,8 @@ add_library(${PROJECT_NAME} STATIC common.c common.h )
 add_executable(${PROJECT_NAME}_string common_string_main.c)
 target_link_libraries(${PROJECT_NAME}_string PRIVATE ${PROJECT_NAME})
 
-add_executable(${PROJECT_NAME}_tests tests.cpp)
-set_property(TARGET ${PROJECT_NAME}_tests PROPERTY CXX_STANDARD 23)
+#add_executable(${PROJECT_NAME}_tests tests.cpp)
+#set_property(TARGET ${PROJECT_NAME}_tests PROPERTY CXX_STANDARD 23)
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/simulate.common_string.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 

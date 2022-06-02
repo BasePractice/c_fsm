@@ -13,7 +13,6 @@ enum Output coin_machine_tick(struct CoinMachine *machine, enum Input input) {
         case STATE_0: {
             if (input == COIN_3) {
                 output = COUNT_1;
-//                machine->state = STATE_0;
             } else if (input == COIN_1) {
                 output = COUNT_0;
                 machine->state = STATE_1;
@@ -32,7 +31,6 @@ enum Output coin_machine_tick(struct CoinMachine *machine, enum Input input) {
         case STATE_1: {
             if (input == COIN_3) {
                 output = COUNT_1;
-//                machine->state = STATE_1;
             } else if (input == COIN_1) {
                 output = COUNT_0;
                 machine->state = STATE_2;
@@ -51,7 +49,6 @@ enum Output coin_machine_tick(struct CoinMachine *machine, enum Input input) {
         case STATE_2: {
             if (input == COIN_3) {
                 output = COUNT_1;
-//                machine->state = STATE_2;
             } else if (input == COIN_1) {
                 output = COUNT_1;
                 machine->state = STATE_0;
@@ -69,7 +66,6 @@ enum Output coin_machine_tick(struct CoinMachine *machine, enum Input input) {
         }
         case STATE_E: {
             fprintf(stderr, "Error mode\n");
-//            machine->state = STATE_E;
             break;
         }
     }
