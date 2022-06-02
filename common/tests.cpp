@@ -15,7 +15,7 @@ static void test_size() {
     static_assert(sizeof(long int) == 4);
     static_assert(sizeof(long long) == 8);
     static_assert(sizeof(double) == 8);
-    static_assert(sizeof(long double) == 16);
+//    static_assert(sizeof(long double) == 16);
     static_assert(sizeof(float) == 4);
 }
 

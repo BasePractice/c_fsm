@@ -1,11 +1,12 @@
 // This is an open source non-commercial project. Dear PVS-Studio, please check it.
 // PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
 #include <limits.h>
+#include <stdio.h>
 #include "pneumo_ctrl.h"
 
 #if defined(PNEUMO_SIMULATE)
-#define TIMEOUT_DELTA(timeout)  1
-#define DELAY_DELTA(delay)      1
+#define TIMEOUT_DELTA(timeout)  5
+#define DELAY_DELTA(delay)      5
 #else
 #define TIMEOUT_DELTA(timeout)  ((timeout) * 1000)
 #define DELAY_DELTA(delay)      ((delay) * 1000)
@@ -52,6 +53,9 @@ void pneumo_engine_init(struct PneumoEngine *engine) {
         engine->delays[PneumoState_8] = DELAY_DELTA(60);
         engine->timeouts[PneumoState_9] = TIMEOUT_DELTA(200);
         engine->delays[PneumoState_9] = DELAY_DELTA(10);
+#if defined(PNEUMO_DEBUG)
+        engine->line = 0;
+#endif
     }
 }
 
@@ -59,21 +63,10 @@ void pneumo_engine_init(struct PneumoEngine *engine) {
 #define DELAY_GE(engine) ( (engine)->delay > (engine)->delays[(engine)->state] )
 
 bool pneumo_engine_tick(struct PneumoEngine *engine) {
+    static int n = 0;
     bool ret = true;
     if (0 == engine)
         return false;
-#if defined(PNEUMO_DEBUG)
-    fprintf(stdout, "State: %s, Y1(in): [%d, %d], Y2(in): [%d, %d], Y1(out): [%d], Y2(out): [%d]\n",
-            state_names[engine->state],
-            engine->cylinders[PNEUMO_CYLINDER_Y1].input_signal[PNEUMO_CYLINDER_SIGNAL_DOWN],
-            engine->cylinders[PNEUMO_CYLINDER_Y1].input_signal[PNEUMO_CYLINDER_SIGNAL_UP],
-            engine->cylinders[PNEUMO_CYLINDER_Y2].input_signal[PNEUMO_CYLINDER_SIGNAL_DOWN],
-            engine->cylinders[PNEUMO_CYLINDER_Y2].input_signal[PNEUMO_CYLINDER_SIGNAL_UP],
-            engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal,
-            engine->cylinders[PNEUMO_CYLINDER_Y2].output_signal
-    );
-    fflush(stdout);
-#endif
     switch (engine->state) {
         case PneumoState_Init: {
             engine->state = PneumoState_1;
@@ -254,6 +247,19 @@ bool pneumo_engine_tick(struct PneumoEngine *engine) {
     }
     engine->timeout++;
     engine->delay++;
+#if defined(PNEUMO_DEBUG)
+    fprintf(stdout, "[%05d] State: %s, Y1(in): [%d, %d], Y2(in): [%d, %d], Y1(out): [%d], Y2(out): [%d]\n",
+            ++engine->line,
+            state_names[engine->state],
+            engine->cylinders[PNEUMO_CYLINDER_Y1].input_signal[PNEUMO_CYLINDER_SIGNAL_UP],
+            engine->cylinders[PNEUMO_CYLINDER_Y1].input_signal[PNEUMO_CYLINDER_SIGNAL_DOWN],
+            engine->cylinders[PNEUMO_CYLINDER_Y2].input_signal[PNEUMO_CYLINDER_SIGNAL_UP],
+            engine->cylinders[PNEUMO_CYLINDER_Y2].input_signal[PNEUMO_CYLINDER_SIGNAL_DOWN],
+            engine->cylinders[PNEUMO_CYLINDER_Y1].output_signal,
+            engine->cylinders[PNEUMO_CYLINDER_Y2].output_signal
+    );
+    fflush(stdout);
+#endif
     return ret;
 }
 

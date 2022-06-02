@@ -7,6 +7,7 @@ add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_library(${PROJECT_NAME} STATIC common.c common.h )
 add_executable(${PROJECT_NAME}_string common_string_main.c)
 target_link_libraries(${PROJECT_NAME}_string PRIVATE ${PROJECT_NAME})
+target_include_directories(${PROJECT_NAME} PUBLIC .)
 
 #add_executable(${PROJECT_NAME}_tests tests.cpp)
 #set_property(TARGET ${PROJECT_NAME}_tests PROPERTY CXX_STANDARD 23)
