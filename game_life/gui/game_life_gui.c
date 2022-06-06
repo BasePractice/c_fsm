@@ -11,7 +11,7 @@
 
 #define WINDOW_WIDTH 1024
 #define WINDOW_HEIGHT 768
-#define QUAD_SIZE   20
+#define MAZE_QUAD_SIZE   20
 #define PADDING_X   5
 #define PADDING_Y   0
 #define CONTROL_HEIGHT 20
@@ -110,7 +110,7 @@ void update_world(struct World *world, int size) {
             switch (c->current_state) {
                 case ALIVE: {
                     if (world->output_cells) {
-                        fprintf(world->output, "{%d, %d}, ", x, y);
+                        fprintf(world->output, "{%zu, %zu}, ", x, y);
                     }
                     struct Color color = colors[c->value];
                     DrawRectangle(x_offset + PADDING_X + (x * size), y * size, size, size, Fade(color, 0.9f));
@@ -222,7 +222,7 @@ int main(void) {
                 size_t x, y, value, count, input = 0;
 
                 fscanf(fd, "%d\n", &quad_size);
-                fscanf(fd, "%d\n", &count);
+                fscanf(fd, "%zd\n", &count);
                 quad_changed_size = quad_size;
                 w_width = ((win_width - 10) / quad_size) - 1;
                 w_height = ((win_height - 100) / quad_size) - 1;

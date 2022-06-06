@@ -10,7 +10,7 @@
 
 #include <raygui.h>
 
-#define QUAD_SIZE 20
+#define MAZE_QUAD_SIZE 20
 #define PADDING_X   5
 #define PADDING_Y   0
 #define CONTROL_HEIGHT 20
@@ -70,22 +70,22 @@ void update_ctx(struct AntContext *ctx) {
         for (k = 0; k < SQUARE_SIZE; ++k) {
             switch (ctx->torus[i][k]) {
                 case SQUARE_PATH: {
-                    DrawRectangle(i * QUAD_SIZE, k * QUAD_SIZE, 20, 20, Fade(GREEN, 0.3f));
+                    DrawRectangle(i * MAZE_QUAD_SIZE, k * MAZE_QUAD_SIZE, 20, 20, Fade(GREEN, 0.3f));
                     break;
                 }
                 case SQUARE_APPLE: {
-                    DrawRectangle(i * QUAD_SIZE, k * QUAD_SIZE, 20, 20, Fade(RED, 1.f));
+                    DrawRectangle(i * MAZE_QUAD_SIZE, k * MAZE_QUAD_SIZE, 20, 20, Fade(RED, 1.f));
                     break;
                 }
                 default:
                 case SQUARE_EMPTY: {
-                    DrawRectangle(i * QUAD_SIZE, k * QUAD_SIZE, 20, 20, Fade(LIGHTGRAY, 0.3f));
+                    DrawRectangle(i * MAZE_QUAD_SIZE, k * MAZE_QUAD_SIZE, 20, 20, Fade(LIGHTGRAY, 0.3f));
                     break;
                 }
             }
         }
     }
-    DrawRectangle(ctx->ant_x * QUAD_SIZE, ctx->ant_y * QUAD_SIZE, 20, 20, Fade(BLACK, 1.f));
+    DrawRectangle(ctx->ant_x * MAZE_QUAD_SIZE, ctx->ant_y * MAZE_QUAD_SIZE, 20, 20, Fade(BLACK, 1.f));
 }
 
 int main(void) {
@@ -112,11 +112,11 @@ int main(void) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
         for (i = 0; i < 32; ++i) {
-            DrawLine(0, i * QUAD_SIZE, 32 * QUAD_SIZE, i * QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
+            DrawLine(0, i * MAZE_QUAD_SIZE, 32 * MAZE_QUAD_SIZE, i * MAZE_QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
         }
 
         for (i = 0; i < 32; ++i) {
-            DrawLine(i * QUAD_SIZE, 0, i * QUAD_SIZE, 32 * QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
+            DrawLine(i * MAZE_QUAD_SIZE, 0, i * MAZE_QUAD_SIZE, 32 * MAZE_QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
         }
 
         //Left pane
@@ -169,7 +169,7 @@ int main(void) {
 
         //Bottom pane
         control_x = 5 + PADDING_X;
-        control_y = (SQUARE_SIZE * QUAD_SIZE) + 20;
+        control_y = (SQUARE_SIZE * MAZE_QUAD_SIZE) + 20;
 #define BUTTON_MUT_WIDTH 40
         if (0 != ctx.sequence) {
             for (i = 0; i < ctx.sequence->node_size; ++i) {

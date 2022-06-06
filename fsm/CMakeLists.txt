@@ -13,6 +13,15 @@ add_executable(${PROJECT_NAME}_transport transport_loader.c transport_loader.h t
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/simulate.bulk.t DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
+if (GUI)
+    include_directories(gui)
+
+    add_executable(${PROJECT_NAME}_transport_ui gui/transport_loader_gui.c transport_loader.c transport_loader.h)
+    set_property(TARGET ${PROJECT_NAME}_transport_ui PROPERTY C_STANDARD 99)
+    target_link_libraries(${PROJECT_NAME}_transport_ui PUBLIC raylib)
+    target_compile_definitions(${PROJECT_NAME}_transport_ui PUBLIC -DPLATFORM_DESKTOP -DGL_SILENCE_DEPRECATION)
+endif ()
+
 if (ANALYZE_ENABLE)
     pvs_studio_add_target(TARGET ${PROJECT_NAME}_bulk.analyze ALL
             OUTPUT FORMAT errorfile
