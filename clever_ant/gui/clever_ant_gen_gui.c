@@ -180,12 +180,12 @@ int main(void) {
                 GuiDrawText(TextFormat("%d", ctx.sequence->node[i].mutates),
                             (Rectangle) {control_x + (i * BUTTON_MUT_WIDTH) + 5, control_y + CONTROL_HEIGHT,
                                          BUTTON_MUT_WIDTH, CONTROL_HEIGHT},
-                            GUI_TEXT_ALIGN_CENTER,
+                            TEXT_ALIGN_CENTER,
                             ctx.sequence->node[i].mutates > 100 ? RED : DARKGRAY);
                 GuiDrawText(TextFormat("%d", ctx.sequence->node[i].enters),
                             (Rectangle) {control_x + (i * BUTTON_MUT_WIDTH) + 5,
                                          control_y + CONTROL_HEIGHT + CONTROL_HEIGHT, BUTTON_MUT_WIDTH, CONTROL_HEIGHT},
-                            GUI_TEXT_ALIGN_CENTER,
+                            TEXT_ALIGN_CENTER,
                             ctx.sequence->node[i].enters > 50 ? RED : DARKGRAY);
             }
         }

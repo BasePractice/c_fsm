@@ -94,12 +94,12 @@ void update_world(struct World *world, int size) {
     for (k = 0; k < world->height; ++k) {
         GuiDrawText(TextFormat("%d", k),
                     (Rectangle) {0, (k * size), size, size},
-                    GUI_TEXT_ALIGN_CENTER, DARKGRAY);
+                    TEXT_ALIGN_CENTER, DARKGRAY);
     }
     for (k = 0; k < world->width; ++k) {
         GuiDrawText(TextFormat("%d", k),
                     (Rectangle) {(k * size), world->height * size, size, size},
-                    GUI_TEXT_ALIGN_CENTER, DARKGRAY);
+                    TEXT_ALIGN_CENTER, DARKGRAY);
     }
 
     for (i = 0; i < world->width; ++i) {

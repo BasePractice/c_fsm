@@ -119,8 +119,12 @@ static void resolve(uint8_t maze[MAZE_ROW][MAZE_COL]) {
     } while (path_it > 0 && running);
 }
 
+
 int
 main(int argc, char **argv) {
+    struct Configuration configuration;
+
+    read_configuration(&configuration, "factory.json");
     print(g_Maze);
     resolve(g_Maze);
     return EXIT_SUCCESS;

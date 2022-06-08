@@ -2,232 +2,134 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <configuration.h>
+#include <transport_loader.h>
+#include <common.h>
+#include <raylib.h>
 
-#define RAYGUI_IMPLEMENTATION
+struct Configuration configuration;
 
-#include <raygui.h>
+#define TILE_SIZE     16
+#define MARGIN_SIZE   2
 
+#define RESOURCE_GRASS 0
+#define RESOURCE_DIRT  1
 
-#define MAZE_ROW 10
-#define MAZE_COL 10
-
-#define MAZE_EMPTY  0
-#define MAZE_START  1
-#define MAZE_WALL   2
-#define MAZE_PATH   3
-#define MAZE_USED   4
-#define MAZE_STOP   5
-
-static uint8_t DIRECTIONS[4][2] = {{0,  1},
-                                   {1,  0},
-                                   {0,  -1},
-                                   {-1, 0}};
-static uint8_t g_Original[MAZE_ROW][MAZE_COL] = {
-        {2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-        {2, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-        {2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
-};
-static uint8_t g_Maze[MAZE_ROW][MAZE_COL] = {
-        {2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 2, 2, 0, 0, 2, 2, 0, 2},
-        {2, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-        {2, 0, 0, 0, 0, 0, 0, 0, 0, 2},
-        {2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
+static int map[] = {
+        24, 23, 14, 25, 34, 13, 15, 35, 33, 44,
+        45, 55, 54, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-struct Coordinate {
-    uint16_t x;
-    uint16_t y;
-    struct Coordinate *up;
+struct Resource {
+    Texture texture;
+    Rectangle *rects;
+    int rects_size;
 };
 
-static struct Path {
-    struct Coordinate **c;
-    uint32_t len;
-} path = {.c = 0, .len = 0};
+static void resource_load(struct Resource *resource, const char *filename) {
+    int i, j, k = 0;
 
-static struct Coordinate start = {.x = 8, .y = 2};
-static struct Coordinate stop = {.x = 2, .y = 8};
-
-#define MAZE_QUAD_SIZE 20
-#define GUI_MAZE_WIDTH   (MAZE_COL * MAZE_QUAD_SIZE)
-#define GUI_MAZE_HEIGHT  (MAZE_ROW * MAZE_QUAD_SIZE)
-
-static void print(uint8_t maze[MAZE_ROW][MAZE_COL]) {
-    int x, y;
-
-//    for (y = 0; y < MAZE_COL; ++y) {
-//        DrawLine(0, y * MAZE_QUAD_SIZE, 32 * MAZE_QUAD_SIZE, y * MAZE_QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
-//    }
-//    for (x = 0; x < MAZE_ROW; ++x) {
-//        DrawLine(x * MAZE_QUAD_SIZE, 0, x * MAZE_QUAD_SIZE, 32 * MAZE_QUAD_SIZE, Fade(LIGHTGRAY, 0.6f));
-//    }
-
-    for (x = 0; x < MAZE_ROW; ++x) {
-        for (y = 0; y < MAZE_COL; ++y) {
-            switch (maze[x][y]) {
-                case MAZE_EMPTY: {
-                    break;
-                }
-                case MAZE_START: {
-                    DrawRectangle(y * MAZE_QUAD_SIZE, x * MAZE_QUAD_SIZE, MAZE_QUAD_SIZE, MAZE_QUAD_SIZE,
-                                  Fade(GREEN, 0.3f));
-                    break;
-                }
-                case MAZE_WALL: {
-                    DrawRectangle(y * MAZE_QUAD_SIZE, x * MAZE_QUAD_SIZE, MAZE_QUAD_SIZE, MAZE_QUAD_SIZE,
-                                  Fade(BROWN, 0.3f));
-                    break;
-                }
-                case MAZE_PATH: {
-                    DrawRectangle(y * MAZE_QUAD_SIZE, x * MAZE_QUAD_SIZE, MAZE_QUAD_SIZE, MAZE_QUAD_SIZE,
-                                  Fade(ORANGE, 0.3f));
-                    break;
-                }
-                case MAZE_STOP: {
-                    DrawRectangle(y * MAZE_QUAD_SIZE, x * MAZE_QUAD_SIZE, MAZE_QUAD_SIZE, MAZE_QUAD_SIZE,
-                                  Fade(RED, 0.3f));
-                    break;
-                }
-                default:
-                case MAZE_USED: {
-                    DrawRectangle(y * MAZE_QUAD_SIZE, x * MAZE_QUAD_SIZE, MAZE_QUAD_SIZE, MAZE_QUAD_SIZE, Fade(GRAY, 0.3f));
-                    break;
-                }
-            }
+    resource->texture = LoadTexture(filename);
+    resource->rects_size = (resource->texture.height / 16) * (resource->texture.width / 16);
+    resource->rects = (Rectangle *) calloc(resource->rects_size, sizeof(Rectangle));
+    for (i = 0; i < resource->texture.height / 16; ++i) {
+        for (j = 0; j < resource->texture.width / 16; ++j) {
+            resource->rects[k].x = (float) (i * TILE_SIZE);
+            resource->rects[k].y = (float) (j * TILE_SIZE);
+            resource->rects[k].height = (float) (TILE_SIZE);
+            resource->rects[k].width = (float) (TILE_SIZE);
+            ++k;
         }
     }
-    DrawRectangle(start.y * MAZE_QUAD_SIZE, start.x * MAZE_QUAD_SIZE, MAZE_QUAD_SIZE, MAZE_QUAD_SIZE,
-                  Fade(GREEN, 0.3f));
-    DrawRectangle(stop.y * MAZE_QUAD_SIZE, stop.x * MAZE_QUAD_SIZE, MAZE_QUAD_SIZE, MAZE_QUAD_SIZE,
-                  Fade(RED, 0.3f));
-}
-
-bool running = true;
-
-static void path_clean() {
-    uint8_t i, j;
-
-    path.c = 0;
-    path.len = 0;
-    running = true;
-    for (i = 0; i < MAZE_ROW; ++i) {
-        for (j = 0; j < MAZE_COL; ++j) {
-            g_Maze[i][j] = g_Original[i][j];
-        }
-    }
-    g_Maze[stop.x][stop.y] = MAZE_STOP;
-}
-
-static struct Coordinate *path_add(struct Coordinate *up, uint16_t x, uint16_t y) {
-    struct Coordinate *c, **p;
-
-    ++path.len;
-    c = calloc(1, sizeof(struct Coordinate));
-    c->y = y;
-    c->x = x;
-    c->up = up;
-    if (0 == path.c) {
-        p = (struct Coordinate **) calloc(1, sizeof(struct Coordinate *));
-    } else {
-        p = (struct Coordinate **) realloc(path.c, path.len * sizeof(struct Coordinate *));
-    }
-    path.c = p;
-    path.c[path.len - 1] = c;
-    return path.c[path.len - 1];
-}
-
-static struct Coordinate *path_pop() {
-    struct Coordinate *r = 0;
-    if (0 != path.c && path.len > 0) {
-        r = path.c[--path.len];
-    }
-    return r;
-}
-
-static struct Coordinate *path_peek() {
-    struct Coordinate *r = 0;
-    if (0 != path.c && path.len > 0) {
-        r = path.c[path.len - 1];
-    }
-    return r;
-}
-
-static void resolve(uint8_t maze[MAZE_ROW][MAZE_COL], bool step) {
-    if (!step)
-        return;
-    struct Coordinate *c = path_pop();
-    if (c == NULL || c->x >= MAZE_ROW || c->y >= MAZE_COL)
-        return;
-    uint8_t d = maze[c->x][c->y];
-    switch (d) {
-        case MAZE_STOP: {
-            struct Coordinate *it;
-            for (it = c; it != 0; it = it->up) {
-                maze[it->x][it->y] = MAZE_PATH;
-            }
-            running = false;
-            return;
-        }
-        case MAZE_PATH:
-        case MAZE_USED:
-        case MAZE_WALL: {
-            return;
-        }
-        case MAZE_START:
-        default: {
-            uint32_t i;
-
-            maze[c->x][c->y] = MAZE_USED;
-            for (i = 0; i < 4; ++i) {
-                uint8_t x = c->x + DIRECTIONS[i][0];
-                uint8_t y = c->y + DIRECTIONS[i][1];
-
-                if (x >= 0 && x < MAZE_ROW && y >= 0 && y < MAZE_COL
-                    && maze[x][y] != MAZE_PATH && maze[x][y] != MAZE_USED && maze[x][y] != MAZE_WALL) {
-                    path_add(c, x, y);
-                }
-            }
-            break;
-        }
-    }
+    SetTextureFilter(resource->texture, TEXTURE_FILTER_TRILINEAR);
 }
 
 int
 main(int argc, char **argv) {
-    float y = GUI_MAZE_HEIGHT + (MAZE_QUAD_SIZE), x = 5;
-    bool step, reset = true;
+    struct Resource grass = {0},dirt = {0};
+    struct Resource *resources[] = {&grass, &dirt}, *selected = 0;
+    size_t row, col;
+    int tile_index = 0, resource_index = 0;
+    Vector2 origin = {.x = 0.0f, .y = 0.0f};
 
-    InitWindow(GUI_MAZE_WIDTH, GUI_MAZE_HEIGHT + 120, "Transport");
+    (void) argc;
+    (void) argv;
+    read_configuration(&configuration, "factory.json");
+    InitWindow((int) configuration.map.size * TILE_SIZE + MARGIN_SIZE, (int) configuration.map.size * TILE_SIZE + MARGIN_SIZE, "Transport");
+
+    resource_load(&grass, "assets/Tilesets/Grass.png");
+    resource_load(&dirt, "assets/Tilesets/Tilled.Dirt.png");
+
     SetTargetFPS(60);
-
-    g_Maze[stop.x][stop.y] = MAZE_STOP;
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        if (reset) {
-            path_clean();
-            path_add(0, start.x, start.y);
-            reset = false;
+
+        if (IsKeyPressed(KEY_LEFT)) {
+            resource_index++;
+            if (resource_index > 1) {
+                resource_index = 0;
+            }
+        } else if (IsKeyPressed(KEY_RIGHT)) {
+            resource_index--;
+            if (resource_index < 0) {
+                resource_index = 1;
+            }
         }
-        step = GuiButton((Rectangle) {x, y, 40, 20}, "Step");
-        reset = GuiButton((Rectangle) {x + 40, y, 40, 20}, "Reset");
-        resolve(g_Maze, step);
-        print(g_Maze);
+        selected = resources[resource_index];
+
+        if (IsKeyPressed(KEY_UP)) {
+            tile_index++;
+            if (tile_index >= selected->rects_size)
+                tile_index = 0;
+        } else if (IsKeyPressed(KEY_DOWN)) {
+            tile_index--;
+            if (tile_index < 0) {
+                tile_index = selected->rects_size - 1;
+            }
+        }
+
+        for (row = 0; row < configuration.map.size; ++row) {
+            for (col = 0; col < configuration.map.size; ++col) {
+                Rectangle dest = {(float) (row * TILE_SIZE), (float) (col * TILE_SIZE), TILE_SIZE, TILE_SIZE};
+                struct Resource *c;
+                size_t idx = (size_t) matrix_get(&configuration.map, col, row);
+                int    real;
+
+                if (idx > 50) {
+                    c = resources[RESOURCE_DIRT];
+                    real = map[idx];
+                } else {
+                    real = map[idx];
+                    c = resources[RESOURCE_GRASS];
+                }
+
+                Rectangle src = c->rects[real];
+                if (real == 0) {
+                    c = selected;
+                    src = selected->rects[tile_index];
+                }
+                DrawTextureTiled(c->texture, src, dest, origin, 0.f, 1.f, RAYWHITE);
+            }
+        }
+        DrawText(TextFormat("%i FPS", GetFPS()), 2 + MARGIN_SIZE, 2 + MARGIN_SIZE, 8, RED);
+        DrawText(TextFormat("%i tile", tile_index), 2 + MARGIN_SIZE, 10 + MARGIN_SIZE, 8, RED);
+        DrawText(TextFormat("%i resource", resource_index), 2 + MARGIN_SIZE, 18 + MARGIN_SIZE, 8, RED);
         EndDrawing();
     }
+    UnloadTexture(grass.texture);
     CloseWindow();
+    matrix_destroy(&configuration.map);
     return EXIT_SUCCESS;
 }
