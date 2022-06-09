@@ -182,6 +182,7 @@ int
 main(int argc, char **argv) {
     struct Resource grass = {0},dirt = {0}, things = {0}, cow = {0};
     struct Resource *resources[] = {&grass, &dirt, &things, &cow}, *selected;
+    struct Rectangle player = {55, 395, 32, 64};
     size_t row, col;
     int tile_index = 0, resource_index = 0, resources_size = sizeof(resources)/ sizeof(resources[0]), cow_count = 0, time = 0;
     Vector2 origin = {.x = 0.0f, .y = 0.0f}, mouse;
@@ -301,11 +302,13 @@ main(int argc, char **argv) {
         write_cow(&cow, 200, 300, cow_count);
         write_cow(&cow, 430, 500, cow_count);
 
-        DrawText(TextFormat("%i FPS", GetFPS()), 2 + MARGIN_SIZE, 2 + MARGIN_SIZE, 8, RED);
-        DrawText(TextFormat("%i tile", tile_index), 2 + MARGIN_SIZE, 10 + MARGIN_SIZE, 8, RED);
-        DrawText(TextFormat("%i resource", resource_index), 2 + MARGIN_SIZE, 18 + MARGIN_SIZE, 8, RED);
-        DrawText(TextFormat("%i time", time), 2 + MARGIN_SIZE, 26 + MARGIN_SIZE, 8, RED);
-        DrawText(TextFormat("Mouse: (%f, %f)", mouse.x, mouse.y), 2 + MARGIN_SIZE, 32 + MARGIN_SIZE, 8, RED);
+        DrawText(TextFormat("FPS: %i", GetFPS()), 2 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
+        DrawText(TextFormat("TLE: %i", tile_index), 70 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
+        DrawText(TextFormat("RSC: %i", resource_index), 130 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
+        DrawText(TextFormat("TIM: %i", time), 190 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
+        DrawText(TextFormat("MSE: (%03i, %03i)", (int)mouse.x, (int)mouse.y), 410 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
+
+        DrawRectangleLinesEx(player, 2, RED);
 
         EndDrawing();
 
