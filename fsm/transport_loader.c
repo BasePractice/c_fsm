@@ -7,6 +7,12 @@ static void read_matrix_int_allocate(void *ud, const char *name, int size) {
     if (strcmp(name, "map") == 0) {
         memset(&p->map, 0, sizeof(struct MapMatrix));
         matrix_allocate(&p->map, size);
+    } else if (strcmp(name, "things") == 0) {
+        memset(&p->things, 0, sizeof(struct MapMatrix));
+        matrix_allocate(&p->things, size);
+    } else if (strcmp(name, "paths") == 0) {
+        memset(&p->paths, 0, sizeof(struct MapMatrix));
+        matrix_allocate(&p->paths, size);
     }
 }
 
@@ -15,6 +21,12 @@ static void read_matrix_int_put(void *ud, const char *name, int x, int y, int va
     if (strcmp(name, "map") == 0) {
         size_t v = value;
         matrix_put(&p->map, x, y, (MapMatrixValue) v);
+    } else if (strcmp(name, "things") == 0) {
+        size_t v = value;
+        matrix_put(&p->things, x, y, (MapMatrixValue) v);
+    } else if (strcmp(name, "paths") == 0) {
+        size_t v = value;
+        matrix_put(&p->paths, x, y, (MapMatrixValue) v);
     }
 }
 

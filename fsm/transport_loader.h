@@ -8,6 +8,8 @@ struct Configuration {
     char hash[36];
 
     struct MapMatrix map;
+    struct MapMatrix things;
+    struct MapMatrix paths;
 };
 
 bool
