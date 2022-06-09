@@ -182,7 +182,7 @@ int
 main(int argc, char **argv) {
     struct Resource grass = {0},dirt = {0}, things = {0}, cow = {0};
     struct Resource *resources[] = {&grass, &dirt, &things, &cow}, *selected;
-    struct Rectangle player = {55, 395, 32, 64};
+    struct Rectangle player = {56, 408, 32, 32};
     size_t row, col;
     int tile_index = 0, resource_index = 0, resources_size = sizeof(resources)/ sizeof(resources[0]), cow_count = 0, time = 0;
     Vector2 origin = {.x = 0.0f, .y = 0.0f}, mouse;
@@ -308,7 +308,7 @@ main(int argc, char **argv) {
         DrawText(TextFormat("TIM: %i", time), 190 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
         DrawText(TextFormat("MSE: (%03i, %03i)", (int)mouse.x, (int)mouse.y), 410 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
 
-        DrawRectangleLinesEx(player, 2, RED);
+        DrawRectangleLinesEx(player, 3, DARKBLUE);
 
         EndDrawing();
 
