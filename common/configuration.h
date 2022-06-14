@@ -1,5 +1,6 @@
 #ifndef FSM_COMMON_CONFIGURATION_H
 #define FSM_COMMON_CONFIGURATION_H
+#include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
 

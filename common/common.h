@@ -7,6 +7,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 typedef void * MapMatrixValue;
 struct MapMatrix {
     MapMatrixValue **data;
@@ -34,5 +38,9 @@ void string_destroy(struct String *string);
 
 bool
 binary_to_hex(const uint8_t *binary, size_t binary_size, char *hex_text, size_t *hex_text_size);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif //C_FSM_COMMON_H
