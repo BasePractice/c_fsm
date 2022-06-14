@@ -3,6 +3,10 @@
 #include <stdint.h>
 #include <common.h>
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
 struct Configuration {
     char version[10];
     char hash[36];
@@ -14,5 +18,9 @@ struct Configuration {
 
 bool
 read_configuration(struct Configuration *configuration, const char *configuration_file);
+
+#if defined(__cplusplus)
+}
+#endif
 
 #endif //C_FSM_TRANSPORT_LOADER_H
