@@ -295,6 +295,8 @@ public:
     void render() const override {
         const Rectangle &rectangle = rect();
 
+        Camera2D screen = {{x, y}, {x, y}, angel, 1};
+        BeginMode2D(screen);
         if (collision) {
             DrawRectangleLinesEx(rectangle, 2, RED);
             DrawRectangleLinesEx(Rectangle{
@@ -311,6 +313,7 @@ public:
         DrawCircleLines((int) bottom_left.center.x, (int) bottom_left.center.y, bottom_left.radius, collision_color);
         DrawCircleLines((int) bottom_right.center.x, (int) bottom_right.center.y, bottom_right.radius, collision_color);
         DrawCircleLines((int) x, (int) y, rfid_radius, collision_color);
+        EndMode2D();
     }
 
 
