@@ -1,24 +1,26 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <iostream>
 #include <configuration.h>
 #include <transport_loader.h>
 #include <common.h>
 #include <raylib.h>
 #include <cassert>
 #include <memory>
-#include <utility>
 #include <vector>
-#include <memory>
 
 struct Configuration configuration;
 
 #define TILE_SIZE     16
 #define MARGIN_SIZE   2
 
+#define WINDOW_HEIGHT  40
+#define WINDOW_WIDTH   34
+
 static int map[] = {
         20, 19, 12, 21, 28, 11, 13, 29, 27, 36,
-        37, 45, 44, 0, 0, 0, 0, 0, 0, 0,
+        37, 45, 44, 79, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -45,6 +47,12 @@ static int map[] = {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
+struct Context {
+    [[nodiscard]] virtual bool is_collision(Rectangle rectangle) const = 0;
+
+    [[nodiscard]] virtual bool is_collision(Vector2 center, float radius) const = 0;
+};
+
 class Object {
 protected:
     float x;
@@ -55,6 +63,14 @@ public:
 
     virtual ~Object() = default;
 
+    [[nodiscard]] float get_x() const {
+        return x;
+    }
+
+    [[nodiscard]] float get_y() const {
+        return y;
+    }
+
     void location(float cx, float cy) {
         x = cx;
         y = cy;
@@ -64,10 +80,10 @@ public:
         visible = v;
     }
 
-    virtual void update(int) {
+    virtual void update(Context *, int) {
     }
 
-    virtual void render() {
+    virtual void render() const {
         (void) x;
         (void) y;
         (void) visible;
@@ -87,7 +103,7 @@ public:
         rect_size = size;
         texture = LoadTexture(filename);
         rects_length = (texture.height / size) * (texture.width / size);
-        rects = std::shared_ptr<Rectangle[]>(new Rectangle[rects_length]);
+        rects = std::shared_ptr<Rectangle[]>(new Rectangle[rects_length], [](Rectangle *r) { delete[] r; });
         for (i = 0; i < texture.width / size; ++i) {
             for (j = 0; j < texture.height / size; ++j) {
                 rects[k].x = (float) (i * size);
@@ -135,13 +151,13 @@ public:
     }
 };
 
-class Cow final: public Object {
+class Cow final : public Object {
     int count;
 public:
     Cow(const Resource &resource) : resource(resource) {
     }
 
-    void update(int time) override {
+    void update(Context *, int time) override {
         if (time % 66 == 0) {
             ++count;
             if (count > 1) {
@@ -150,13 +166,13 @@ public:
         }
     }
 
-    void render() override {
+    void render() const override {
         if (visible)
             render(count);
     }
 
 private:
-    void render(int i) {
+    void render(int i) const {
         auto size = resource.size();
         switch (i) {
             default:
@@ -194,25 +210,139 @@ private:
     const Resource &resource;
 };
 
-class Player: public Object {
-    void render() override {
-        struct Rectangle player = {x, y, 32, 64};
-        DrawRectangleLinesEx(player, 2, RED);
+class Loader : public Object {
+    const float width = 32;
+    const float height = 64;
+    float angel = 0.f;
+    bool collision = false;
+    struct Color collision_color = {135, 60, 190, 150};
+
+    struct UV {
+        Vector2 center;
+        float radius;
+    };
+    struct UV top_left = {.center = {.x = 0, .y = 0}, .radius = 30};
+    struct UV top_right = {.center = {.x = 0, .y = 0}, .radius = 30};
+    struct UV bottom_left = {.center = {.x = 0, .y = 0}, .radius = 30};
+    struct UV bottom_right = {.center = {.x = 0, .y = 0}, .radius = 30};
+
+    float rfid_radius = 5;
+public:
+    [[nodiscard]] float get_angel() const {
+        return angel;
+    }
+
+    void update(Context *context, int time) override {
+        float dx = x;
+        float dy = y;
+        (void) time;
+
+        if (IsKeyDown(KEY_UP)) {
+            dy -= 0.5;
+            if (dy < 0) {
+                dy = 0;
+            }
+        }
+        if (IsKeyDown(KEY_LEFT)) {
+            dx -= 0.5;
+            if (dx < 0) {
+                dx = 0;
+            }
+        }
+        if (IsKeyDown(KEY_DOWN)) {
+            dy += 0.5;
+            if (dy > WINDOW_WIDTH * TILE_SIZE) {
+                dy = WINDOW_WIDTH * TILE_SIZE - MARGIN_SIZE;
+            }
+        }
+        if (IsKeyDown(KEY_RIGHT)) {
+            dx += 0.5;
+            if (dx > WINDOW_WIDTH * TILE_SIZE) {
+                dx = WINDOW_WIDTH * TILE_SIZE - MARGIN_SIZE;
+            }
+        }
+
+        if (IsKeyDown(KEY_A)) {
+            angel += 0.1;
+            if (angel >= 360) {
+                angel = 0;
+            }
+        }
+        if (IsKeyDown(KEY_D)) {
+            angel -= 0.1;
+            if (angel < 0) {
+                angel = 360;
+            }
+        }
+
+        collision = context->is_collision(rect(dx, dy));
+        if (!collision) {
+            x = dx;
+            y = dy;
+        }
+        top_left.center.x = x - width / 2;
+        top_left.center.y = y - height / 2;
+        top_right.center.x = x + width - width / 2;
+        top_right.center.y = y - height / 2;
+
+        bottom_left.center.x = x + width / 2;
+        bottom_left.center.y = y + height / 2;
+
+        bottom_right.center.x = x - width / 2;
+        bottom_right.center.y = y + height / 2;
+    }
+
+    void render() const override {
+        const Rectangle &rectangle = rect();
+
+        if (collision) {
+            DrawRectangleLinesEx(rectangle, 2, RED);
+            DrawRectangleLinesEx(Rectangle{
+                    .x = ((rectangle.x - TILE_SIZE) / TILE_SIZE) * TILE_SIZE,
+                    .y = ((rectangle.y - TILE_SIZE) / TILE_SIZE) * TILE_SIZE,
+                    .width = rectangle.width + TILE_SIZE + TILE_SIZE,
+                    .height = rectangle.height + TILE_SIZE + TILE_SIZE,
+            }, 1, collision_color);
+        } else {
+            DrawRectangleLinesEx(rectangle, 1, BLUE);
+        }
+        DrawCircleLines((int) top_left.center.x, (int) top_left.center.y, top_left.radius, collision_color);
+        DrawCircleLines((int) top_right.center.x, (int) top_right.center.y, top_right.radius, collision_color);
+        DrawCircleLines((int) bottom_left.center.x, (int) bottom_left.center.y, bottom_left.radius, collision_color);
+        DrawCircleLines((int) bottom_right.center.x, (int) bottom_right.center.y, bottom_right.radius, collision_color);
+        DrawCircleLines((int) x, (int) y, rfid_radius, collision_color);
+    }
+
+
+private:
+    [[nodiscard]] Rectangle rect() const {
+        return rect(x, y);
+    }
+
+    [[nodiscard]] Rectangle rect(float x, float y) const {
+        return {.x = x - width / 2, .y = y - height / 2, .width = width, .height = height};
     }
 };
 
-class Game {
+class Game final : public Context {
     std::vector<Object *> objects;
     std::vector<Resource> resources;
     struct Configuration configuration;
     int tile_index = 0, resource_index = 0, time = 0;
     Vector2 mouse;
+    bool visible_debug = true;
+    const float height_delta = WINDOW_HEIGHT * 13.5;
+
+    struct Color color_ground = {190, 33, 55, 50};
+    struct Color color_gud = RED;
+
+    Loader *loader = nullptr;
 public:
     enum ResourceId {
         Grass, Dirt, Things, Cow
     };
 
-    explicit Game(const char *const configuration_file) : resources(4), configuration{} {
+    explicit Game(const char *const configuration_file) : resources(4), configuration{}, mouse{} {
         resources[Grass].load("assets/Tilesets/Grass.png");
         resources[Dirt].load("assets/Tilesets/Tilled.Dirt.png");
         resources[Things].load("assets/Objects/Basic.Grass.Biom.Things.1.png");
@@ -232,14 +362,15 @@ public:
         add(cow);
     }
 
-    void player(float x, float y) {
-        auto player = new class Player;
-        player->location(x, y);
-        player->visibility(true);
-        add(player);
+    void add_loader(float x, float y) {
+        assert(loader == nullptr);
+        loader = new class Loader;
+        loader->location(x, y);
+        loader->visibility(true);
+        add(loader);
     }
 
-    void render() {
+    void render() const {
         draw_resources();
         for (auto &object: objects) {
             object->render();
@@ -252,15 +383,15 @@ public:
         mouse = GetMousePosition();
 
         for (auto object: objects) {
-            object->update(time);
+            object->update(this, time);
         }
 
-        if (IsKeyPressed(KEY_LEFT)) {
+        if (IsKeyPressed(KEY_LEFT) && IsKeyDown(KEY_R)) {
             resource_index++;
             if (resource_index >= (int) resources.size()) {
                 resource_index = 0;
             }
-        } else if (IsKeyPressed(KEY_RIGHT)) {
+        } else if (IsKeyPressed(KEY_RIGHT) && IsKeyDown(KEY_R)) {
             resource_index--;
             if (resource_index < 0) {
                 resource_index = (int) resources.size() - 1;
@@ -270,11 +401,11 @@ public:
             return;
 
         const Resource &at = resources.at(resource_index);
-        if (IsKeyPressed(KEY_UP)) {
+        if (IsKeyPressed(KEY_UP) && IsKeyDown(KEY_R)) {
             tile_index++;
             if (tile_index >= at.count())
                 tile_index = 0;
-        } else if (IsKeyPressed(KEY_DOWN)) {
+        } else if (IsKeyPressed(KEY_DOWN) && IsKeyDown(KEY_R)) {
             tile_index--;
             if (tile_index < 0) {
                 tile_index = at.count() - 1;
@@ -286,47 +417,88 @@ public:
         return resources[id];
     }
 
-private:
-    void draw_gud() const {
-        DrawText(TextFormat("FPS: %i", GetFPS()), 2 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
-        DrawText(TextFormat("TLE: %i", tile_index), 70 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
-        DrawText(TextFormat("RSC: %i", resource_index), 130 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
-        DrawText(TextFormat("TIM: %i", time), 190 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16, GRAY);
-        DrawText(TextFormat("MSE: (%03i, %03i)", (int) mouse.x, (int) mouse.y), 410 + MARGIN_SIZE, 2 + MARGIN_SIZE, 16,
-                 GRAY);
+    [[nodiscard]] bool is_collision(Rectangle rectangle) const override {
+        auto di = get_tail(rectangle.x, rectangle.y);
+        if (di < 0 || is_ground(di)) {
+            return true;
+        }
+        di = get_tail(rectangle.x + rectangle.width, rectangle.y);
+        if (di < 0 || is_ground(di)) {
+            return true;
+        }
+        di = get_tail(rectangle.x, rectangle.y + rectangle.height);
+        if (di < 0 || is_ground(di)) {
+            return true;
+        }
+        di = get_tail(rectangle.x + rectangle.width, rectangle.y + rectangle.height);
+        if (di < 0 || is_ground(di)) {
+            return true;
+        }
+        return false;
     }
 
-    void draw_resources() {
+    bool is_collision(Vector2 center, float radius) const override {
+        (void) center;
+        (void) radius;
+        return false;
+    }
+
+private:
+    void draw_gud() const {
+        float row = 0;
+
+        DrawText(TextFormat("FPS: %i", GetFPS()), 2 + MARGIN_SIZE,
+                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+        DrawText(TextFormat("TLE: %i", tile_index), 70 + MARGIN_SIZE,
+                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+        DrawText(TextFormat("RSC: %i", resource_index), 130 + MARGIN_SIZE,
+                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+        const Resource &c = resource(static_cast<ResourceId>(resource_index));
+        c.draw(tile_index, 190 + MARGIN_SIZE, row + height_delta + MARGIN_SIZE);
+        DrawRectangleLinesEx(
+                Rectangle{.x = 190 + MARGIN_SIZE, .y = row + height_delta + MARGIN_SIZE,
+                        .width = TILE_SIZE, .height = TILE_SIZE}, 1, color_gud);
+        DrawText(TextFormat("TIM: %i", time), 220 + MARGIN_SIZE,
+                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+        DrawText(TextFormat("MSE: (%03i, %03i)", (int) mouse.x, (int) mouse.y), 425 + MARGIN_SIZE,
+                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+
+
+        row += MARGIN_SIZE + 15;
+        DrawText("R + <Up>/<Down>   : TLE", 2 + MARGIN_SIZE,
+                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+        row += MARGIN_SIZE + 15;
+        DrawText("R + <Left>/<Right>: RSC", 2 + MARGIN_SIZE,
+                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+        if (loader != nullptr) {
+            row += MARGIN_SIZE + 15;
+            DrawText(TextFormat("LDR: [%d, %d] ANG: %f",
+                                (int) loader->get_x(), (int) loader->get_y(), loader->get_angel()), 2 + MARGIN_SIZE,
+                     row + height_delta + MARGIN_SIZE, 16, color_gud);
+        }
+    }
+
+    void draw_resources() const {
+        const Resource &grass = resource(Grass);
         for (size_t row = 0; row < configuration.map.size; ++row) {
             for (size_t col = 0; col < configuration.map.size; ++col) {
-                Resource &c = resources[Grass];
                 auto idx = (size_t) matrix_get(&configuration.map, col, row);
-                int real;
-
-                real = map[idx];
-                if (idx > 50 && idx < 100) {
-                    c = resources[Dirt];
-                } else if (idx >= 100 && idx < 150) {
-                    c = resources[Things];
-                } else if (idx >= 150) {
-                    c = resources[Cow];
-                } else {
-                    c = resources[Grass];
+                float cx = row * grass.size();
+                float cy = col * grass.size();
+                grass.draw(map[idx], cx, cy);
+                if (visible_debug) {
+                    if (is_ground(idx)) {
+                        struct Rectangle ground = {cx, cy, TILE_SIZE, TILE_SIZE};
+                        DrawRectangleLinesEx(ground, 1, color_ground);
+                    }
                 }
-
-                if (real == 0) {
-                    c = resource(static_cast<ResourceId>(resource_index));
-                    real = tile_index;
-                }
-
-                c.draw(real, row * c.size(), col * c.size());
             }
         }
         draw_resources(&configuration.things, Things);
         draw_resources(&configuration.paths, Dirt);
     }
 
-    void draw_resources(struct MapMatrix *mat, const ResourceId id) {
+    void draw_resources(const struct MapMatrix *mat, const ResourceId id) const {
         const auto &res = resource(id);
         for (size_t row = 0; row < mat->size; ++row) {
             for (size_t col = 0; col < mat->size; ++col) {
@@ -337,6 +509,19 @@ private:
                 res.draw(idx - 1, row * res.size(), col * res.size());
             }
         }
+    }
+
+    static bool is_ground(int id) {
+        return id > 0 && id < 13;
+    }
+
+    int get_tail(float x, float y) const {
+        size_t col = x / TILE_SIZE;
+        size_t row = y / TILE_SIZE;
+        if (configuration.map.size <= row || configuration.map.size <= col)
+            return -1;
+        MapMatrixValue get = matrix_get(&configuration.map, row, col);
+        return reinterpret_cast<size_t>(get);
     }
 
 public:
@@ -352,15 +537,13 @@ int
 main(int argc, char **argv) {
     (void) argc;
     (void) argv;
-    InitWindow((int) 34 * TILE_SIZE + MARGIN_SIZE,
-               (int) 34 * TILE_SIZE + MARGIN_SIZE, "Transport");
+    InitWindow(WINDOW_WIDTH * TILE_SIZE + MARGIN_SIZE, WINDOW_HEIGHT * TILE_SIZE + MARGIN_SIZE, "Transport");
     SetTargetFPS(60);
-    ShowCursor();
     Game g("factory.json");
     g.cow(50, 50);
     g.cow(200, 300);
     g.cow(430, 500);
-    g.player(55, 395);
+    g.add_loader(55, 425);
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -368,8 +551,9 @@ main(int argc, char **argv) {
         g.render();
         EndDrawing();
         if (IsKeyPressed(KEY_C)) {
-            Image screen = LoadImageFromScreen();
-            ExportImage(screen, "export.png");
+            TakeScreenshot("export.png");
+//            Image screen = LoadImageFromScreen();
+//            ExportImage(screen, "export.png");
         }
     }
     CloseWindow();

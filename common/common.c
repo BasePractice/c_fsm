@@ -109,7 +109,7 @@ void matrix_put(struct MapMatrix *matrix, size_t row, size_t col, MapMatrixValue
     matrix->data[row][col] = value;
 }
 
-MapMatrixValue matrix_get(struct MapMatrix *matrix, size_t row, size_t col) {
+MapMatrixValue matrix_get(const struct MapMatrix *matrix, size_t row, size_t col) {
     assert(0 != matrix && 0 != matrix->data && 0 != matrix->size && row >= 0
            && row < matrix->size && col >= 0 && col < matrix->size);
     return matrix->data[row][col];

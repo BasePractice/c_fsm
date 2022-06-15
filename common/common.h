@@ -19,7 +19,7 @@ struct MapMatrix {
 
 void matrix_allocate(struct MapMatrix *matrix, size_t size);
 void matrix_put(struct MapMatrix *matrix, size_t row, size_t col, MapMatrixValue value);
-MapMatrixValue matrix_get(struct MapMatrix *matrix, size_t row, size_t col);
+MapMatrixValue matrix_get(const struct MapMatrix *matrix, size_t row, size_t col);
 void matrix_destroy(struct MapMatrix *matrix);
 
 struct String {
