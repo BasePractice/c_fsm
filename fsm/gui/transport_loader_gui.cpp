@@ -47,10 +47,19 @@ static int map[] = {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
+//static size_t path[] = {
+//        0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+//        7, 7, 7, 7, 7, 7, 7
+//};
+
 struct Context {
     [[nodiscard]] virtual bool is_collision(Rectangle rectangle) const = 0;
 
     [[nodiscard]] virtual bool is_collision(Vector2 center, float radius) const = 0;
+
+    [[nodiscard]] virtual int rfid_point(Vector2 center, float radius) const = 0;
+
+    [[nodiscard]] virtual bool rfid_point(float x, float y) const = 0;
 };
 
 class Object {
@@ -227,9 +236,19 @@ class Loader : public Object {
     struct UV bottom_right = {.center = {.x = 0, .y = 0}, .radius = 30};
 
     float rfid_radius = 5;
+    int point = -1;
+    bool point_center = false;
 public:
     [[nodiscard]] float get_angel() const {
         return angel;
+    }
+
+    [[nodiscard]] int get_point() const {
+        return point;
+    }
+
+    [[nodiscard]] bool is_point_center() const {
+        return point_center;
     }
 
     void update(Context *context, int time) override {
@@ -262,19 +281,18 @@ public:
             }
         }
 
-        if (IsKeyDown(KEY_A)) {
-            angel += 0.1;
-            if (angel >= 360) {
+        if (IsKeyDown(KEY_D)) {
+            angel += 0.4;
+            if (angel >= 359.8) {
                 angel = 0;
             }
         }
-        if (IsKeyDown(KEY_D)) {
-            angel -= 0.1;
-            if (angel < 0) {
+        if (IsKeyDown(KEY_A)) {
+            angel -= 0.4;
+            if (angel < 0.2) {
                 angel = 360;
             }
         }
-
         collision = context->is_collision(rect(dx, dy));
         if (!collision) {
             x = dx;
@@ -290,6 +308,9 @@ public:
 
         bottom_right.center.x = x - width / 2;
         bottom_right.center.y = y + height / 2;
+
+        point = context->rfid_point(Vector2{.x = x, .y = y}, rfid_radius);
+        point_center = context->rfid_point(x, y);
     }
 
     void render() const override {
@@ -299,6 +320,7 @@ public:
         BeginMode2D(screen);
         if (collision) {
             DrawRectangleLinesEx(rectangle, 2, RED);
+            DrawCircle(rectangle.x + rectangle.width / 2, rectangle.y, 2, RED);
             DrawRectangleLinesEx(Rectangle{
                     .x = ((rectangle.x - TILE_SIZE) / TILE_SIZE) * TILE_SIZE,
                     .y = ((rectangle.y - TILE_SIZE) / TILE_SIZE) * TILE_SIZE,
@@ -306,7 +328,8 @@ public:
                     .height = rectangle.height + TILE_SIZE + TILE_SIZE,
             }, 1, collision_color);
         } else {
-            DrawRectangleLinesEx(rectangle, 1, BLUE);
+            DrawRectangleLinesEx(rectangle, 2, BLUE);
+            DrawCircle(rectangle.x + rectangle.width / 2, rectangle.y, 2, BLUE);
         }
         DrawCircleLines((int) top_left.center.x, (int) top_left.center.y, top_left.radius, collision_color);
         DrawCircleLines((int) top_right.center.x, (int) top_right.center.y, top_right.radius, collision_color);
@@ -440,15 +463,38 @@ public:
         return false;
     }
 
-    bool is_collision(Vector2 center, float radius) const override {
+    [[nodiscard]] bool is_collision(Vector2 center, float radius) const override {
         (void) center;
         (void) radius;
         return false;
     }
 
+    [[nodiscard]] int rfid_point(Vector2 center, float radius) const override {
+        size_t col = center.x / TILE_SIZE;
+        size_t row = center.y / TILE_SIZE;
+        auto tail = (size_t) matrix_get(&configuration.paths, row, col);
+        if (tail > 0 && tail < 20) {
+            float dx = (col * TILE_SIZE) + TILE_SIZE / 2;
+            float dy = (row * TILE_SIZE) + TILE_SIZE / 2;
+            bool under = CheckCollisionCircles(
+                    center, radius, Vector2{.x = dx, .y = dy}, 0.5f);
+            return under ? tail : 0;
+        }
+        return -1;
+    }
+
+    [[nodiscard]] bool rfid_point(float x, float y) const override {
+        size_t col = x / TILE_SIZE;
+        size_t row = y / TILE_SIZE;
+        float dx = (col * TILE_SIZE) + TILE_SIZE / 2;
+        float dy = (row * TILE_SIZE) + TILE_SIZE / 2;
+        auto tail = (size_t) matrix_get(&configuration.paths, row, col);
+        return tail > 0 && tail < 20 && dx == x && dy == y;
+    }
+
 private:
     void draw_gud() const {
-        float row = 0;
+        int row = MARGIN_SIZE;
 
         DrawText(TextFormat("FPS: %i", GetFPS()), 2 + MARGIN_SIZE,
                  row + height_delta + MARGIN_SIZE, 16, color_gud);
@@ -475,8 +521,9 @@ private:
                  row + height_delta + MARGIN_SIZE, 16, color_gud);
         if (loader != nullptr) {
             row += MARGIN_SIZE + 15;
-            DrawText(TextFormat("LDR: [%d, %d] ANG: %f",
-                                (int) loader->get_x(), (int) loader->get_y(), loader->get_angel()), 2 + MARGIN_SIZE,
+            DrawText(TextFormat("LDR: [%d, %d],  ANG: %f, POT: %d",
+                                (int) loader->get_x(), (int) loader->get_y(), loader->get_angel(), loader->get_point()),
+                     2 + MARGIN_SIZE,
                      row + height_delta + MARGIN_SIZE, 16, color_gud);
         }
     }
@@ -486,8 +533,8 @@ private:
         for (size_t row = 0; row < configuration.map.size; ++row) {
             for (size_t col = 0; col < configuration.map.size; ++col) {
                 auto idx = (size_t) matrix_get(&configuration.map, col, row);
-                float cx = row * grass.size();
-                float cy = col * grass.size();
+                float cx = (float) row * grass.size();
+                float cy = (float) col * grass.size();
                 grass.draw(map[idx], cx, cy);
                 if (visible_debug) {
                     if (is_ground(idx)) {
@@ -498,23 +545,39 @@ private:
             }
         }
         draw_resources(&configuration.things, Things);
-        draw_resources(&configuration.paths, Dirt);
-    }
+//        draw_resources(&configuration.paths, Dirt, [](size_t x) { return path[x]; });
 
-    void draw_resources(const struct MapMatrix *mat, const ResourceId id) const {
-        const auto &res = resource(id);
-        for (size_t row = 0; row < mat->size; ++row) {
-            for (size_t col = 0; col < mat->size; ++col) {
-                auto idx = (size_t) matrix_get(mat, col, row);
-                if (idx == 0) {
-                    continue;
+        if (visible_debug) {
+            for (size_t row = 0; row < configuration.paths.size; ++row) {
+                for (size_t col = 0; col < configuration.paths.size; ++col) {
+                    auto idx = (size_t) matrix_get(&configuration.paths, col, row);
+                    if (idx == 0) {
+                        continue;
+                    }
+                    float dx = (row * TILE_SIZE) + TILE_SIZE / 2;
+                    float dy = (col * TILE_SIZE) + TILE_SIZE / 2;
+                    DrawCircleLines(dx, dy, 5, color_ground);
                 }
-                res.draw(idx - 1, row * res.size(), col * res.size());
             }
         }
     }
 
-    static bool is_ground(int id) {
+    void draw_resources(const struct MapMatrix *mat, const ResourceId id,
+                        size_t (*transform)(size_t) = [](size_t x) { return x; }) const {
+        const auto &res = resource(id);
+        for (size_t row = 0; row < mat->size; ++row) {
+            for (size_t col = 0; col < mat->size; ++col) {
+                auto idx = (size_t) matrix_get(mat, col, row);
+                auto i = (*transform)(idx);
+                if (i == 0) {
+                    continue;
+                }
+                res.draw(i - 1, row * res.size(), col * res.size());
+            }
+        }
+    }
+
+    static bool is_ground(size_t id) {
         return id > 0 && id < 13;
     }
 
@@ -540,7 +603,7 @@ int
 main(int argc, char **argv) {
     (void) argc;
     (void) argv;
-    InitWindow(WINDOW_WIDTH * TILE_SIZE + MARGIN_SIZE, WINDOW_HEIGHT * TILE_SIZE + MARGIN_SIZE, "Transport");
+    InitWindow(WINDOW_WIDTH * TILE_SIZE + MARGIN_SIZE, WINDOW_HEIGHT * TILE_SIZE + MARGIN_SIZE, "Транспортер");
     SetTargetFPS(60);
     Game g("factory.json");
     g.cow(50, 50);
