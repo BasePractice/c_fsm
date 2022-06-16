@@ -320,7 +320,7 @@ public:
         BeginMode2D(screen);
         if (collision) {
             DrawRectangleLinesEx(rectangle, 2, RED);
-            DrawCircle(rectangle.x + rectangle.width / 2, rectangle.y, 2, RED);
+            DrawCircle((int)(rectangle.x + rectangle.width / 2), (int)rectangle.y, 2, RED);
             DrawRectangleLinesEx(Rectangle{
                     .x = ((rectangle.x - TILE_SIZE) / TILE_SIZE) * TILE_SIZE,
                     .y = ((rectangle.y - TILE_SIZE) / TILE_SIZE) * TILE_SIZE,
@@ -329,7 +329,7 @@ public:
             }, 1, collision_color);
         } else {
             DrawRectangleLinesEx(rectangle, 2, BLUE);
-            DrawCircle(rectangle.x + rectangle.width / 2, rectangle.y, 2, BLUE);
+            DrawCircle((int)(rectangle.x + rectangle.width / 2), (int)rectangle.y, 2, BLUE);
         }
         DrawCircleLines((int) top_left.center.x, (int) top_left.center.y, top_left.radius, collision_color);
         DrawCircleLines((int) top_right.center.x, (int) top_right.center.y, top_right.radius, collision_color);
