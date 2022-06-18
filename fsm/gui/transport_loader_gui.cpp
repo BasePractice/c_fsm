@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <cmath>
 #include <iostream>
 #include <configuration.h>
 #include <transport_loader.h>
@@ -316,8 +317,8 @@ public:
     void render() const override {
         const Rectangle &rectangle = rect();
 
-        Camera2D screen = {{x, y}, {x, y}, angel, 1};
-        BeginMode2D(screen);
+//        Camera2D screen = {{x, y}, {x, y}, angel, 1};
+//        BeginMode2D(screen);
         if (collision) {
             DrawRectangleLinesEx(rectangle, 2, RED);
             DrawCircle((int)(rectangle.x + rectangle.width / 2), (int)rectangle.y, 2, RED);
@@ -336,11 +337,16 @@ public:
         DrawCircleLines((int) bottom_left.center.x, (int) bottom_left.center.y, bottom_left.radius, collision_color);
         DrawCircleLines((int) bottom_right.center.x, (int) bottom_right.center.y, bottom_right.radius, collision_color);
         DrawCircleLines((int) x, (int) y, rfid_radius, collision_color);
-        EndMode2D();
+//        EndMode2D();
     }
 
 
 private:
+    static Vector2 rotate(Vector2 pt, Vector2 center, float angle) {
+        return { .x = (float)((pt.x - center.x) * cos(angle) - (pt.y - center.y) * sin(angle) + center.x),
+                 .y = (float)((pt.x - center.x) * sin(angle) - (pt.y - center.y) * cos(angle) + center.y) };
+    }
+
     [[nodiscard]] Rectangle rect() const {
         return rect(x, y);
     }
