@@ -58,6 +58,8 @@ struct Context {
 
     [[nodiscard]] virtual bool is_collision(Vector2 center, float radius) const = 0;
 
+    [[nodiscard]] virtual bool is_collision(Vector2 start, Vector2 stop) const = 0;
+
     [[nodiscard]] virtual int rfid_point(Vector2 center, float radius) const = 0;
 
     [[nodiscard]] virtual bool rfid_point(float x, float y) const = 0;
@@ -227,14 +229,18 @@ class Loader : public Object {
     bool collision = false;
     struct Color collision_color = {135, 60, 190, 150};
 
-    struct UV {
-        Vector2 center;
-        float radius;
+    struct Device {
+        Vector2 d1, d2;
     };
-    struct UV top_left = {.center = {.x = 0, .y = 0}, .radius = 30};
-    struct UV top_right = {.center = {.x = 0, .y = 0}, .radius = 30};
-    struct UV bottom_left = {.center = {.x = 0, .y = 0}, .radius = 30};
-    struct UV bottom_right = {.center = {.x = 0, .y = 0}, .radius = 30};
+    struct Vector2 top_left = {.x = 0, .y = 0};
+    struct Vector2 top_right = {.x = 0, .y = 0};
+    struct Vector2 bottom_left = {.x = 0, .y = 0};
+    struct Vector2 bottom_right = {.x = 0, .y = 0};
+
+    struct Device device_top;
+    struct Device device_bottom;
+    struct Device device_left;
+    struct Device device_right;
 
     float rfid_radius = 5;
     int point = -1;
@@ -283,76 +289,97 @@ public:
         }
 
         if (IsKeyDown(KEY_D)) {
-            angel += 0.4;
+            angel += 0.5;
             if (angel >= 359.8) {
                 angel = 0;
             }
         }
         if (IsKeyDown(KEY_A)) {
-            angel -= 0.4;
+            angel -= 0.5;
             if (angel < 0.2) {
                 angel = 360;
             }
         }
-        collision = context->is_collision(rect(dx, dy));
-        if (!collision) {
-            x = dx;
-            y = dy;
+
+        {
+            auto dtl = rotate(Vector2{.x = dx - width / 2, .y = dy - height / 2}, Vector2{.x = dx, .y = dy}, angel);
+            auto dtr = rotate(Vector2{.x = dx + width / 2, .y = dy - height / 2}, Vector2{.x = dx, .y = dy}, angel);
+            auto dbl = rotate(Vector2{.x = dx - width / 2, .y = dy + height / 2}, Vector2{.x = dx, .y = dy}, angel);
+            auto dbr = rotate(Vector2{.x = dx + width / 2, .y = dy + height / 2}, Vector2{.x = dx, .y = dy}, angel);
+
+            collision = context->is_collision(dtl, dtr);
+            collision |= context->is_collision(dtr, dbr);
+            collision |= context->is_collision(dbr, dbl);
+            collision |= context->is_collision(dbl, dtl);
+            if (!collision) {
+                x = dx;
+                y = dy;
+            }
         }
-        top_left.center.x = x - width / 2;
-        top_left.center.y = y - height / 2;
-        top_right.center.x = x + width - width / 2;
-        top_right.center.y = y - height / 2;
+        top_left = rotate(Vector2{.x = x - width / 2, .y = y - height / 2}, Vector2{.x = x, .y = y}, angel);
+        top_right = rotate(Vector2{.x = x + width / 2, .y = y - height / 2}, Vector2{.x = x, .y = y}, angel);
+        bottom_left = rotate(Vector2{.x = x - width / 2, .y = y + height / 2}, Vector2{.x = x, .y = y}, angel);
+        bottom_right = rotate(Vector2{.x = x + width / 2, .y = y + height / 2}, Vector2{.x = x, .y = y}, angel);
 
-        bottom_left.center.x = x + width / 2;
-        bottom_left.center.y = y + height / 2;
+        device_top = device_calculate(top_left, top_right, width);
+        device_bottom = device_calculate(bottom_right, bottom_left, width);
 
-        bottom_right.center.x = x - width / 2;
-        bottom_right.center.y = y + height / 2;
+        device_left = device_calculate(top_left, bottom_left, height);
+        device_right = device_calculate(bottom_right, top_right, height);
 
         point = context->rfid_point(Vector2{.x = x, .y = y}, rfid_radius);
         point_center = context->rfid_point(x, y);
     }
 
     void render() const override {
-        const Rectangle &rectangle = rect();
+        auto color = BLUE;
+        auto thick = 1.0f;
+        auto top = Vector2{.x = (top_left.x + top_right.x) / 2, .y = (top_left.y + top_right.y) / 2};
 
-//        Camera2D screen = {{x, y}, {x, y}, angel, 1};
-//        BeginMode2D(screen);
         if (collision) {
-            DrawRectangleLinesEx(rectangle, 2, RED);
-            DrawCircle((int)(rectangle.x + rectangle.width / 2), (int)rectangle.y, 2, RED);
-            DrawRectangleLinesEx(Rectangle{
-                    .x = ((rectangle.x - TILE_SIZE) / TILE_SIZE) * TILE_SIZE,
-                    .y = ((rectangle.y - TILE_SIZE) / TILE_SIZE) * TILE_SIZE,
-                    .width = rectangle.width + TILE_SIZE + TILE_SIZE,
-                    .height = rectangle.height + TILE_SIZE + TILE_SIZE,
-            }, 1, collision_color);
-        } else {
-            DrawRectangleLinesEx(rectangle, 2, BLUE);
-            DrawCircle((int)(rectangle.x + rectangle.width / 2), (int)rectangle.y, 2, BLUE);
+            color = RED;
+            thick = 2.f;
         }
-        DrawCircleLines((int) top_left.center.x, (int) top_left.center.y, top_left.radius, collision_color);
-        DrawCircleLines((int) top_right.center.x, (int) top_right.center.y, top_right.radius, collision_color);
-        DrawCircleLines((int) bottom_left.center.x, (int) bottom_left.center.y, bottom_left.radius, collision_color);
-        DrawCircleLines((int) bottom_right.center.x, (int) bottom_right.center.y, bottom_right.radius, collision_color);
+        DrawCircle((int) top.x, (int) top.y, 2.f, color);
+
+        DrawLineEx(top_left, top_right, thick, color);
+        DrawLineEx(top_right, bottom_right, thick, color);
+        DrawLineEx(bottom_right, bottom_left, thick, color);
+        DrawLineEx(bottom_left, top_left, thick, color);
+
+        {
+            DrawLineEx(Vector2{.x = device_top.d1.x, .y = device_top.d1.y},
+                       Vector2{.x = device_top.d2.x, .y = device_top.d2.y}, thick, collision_color);
+            DrawLineEx(Vector2{.x = device_bottom.d1.x, .y = device_bottom.d1.y},
+                       Vector2{.x = device_bottom.d2.x, .y = device_bottom.d2.y}, thick, collision_color);
+            DrawLineEx(Vector2{.x = device_left.d1.x, .y = device_left.d1.y},
+                       Vector2{.x = device_left.d2.x, .y = device_left.d2.y}, thick, collision_color);
+            DrawLineEx(Vector2{.x = device_right.d1.x, .y = device_right.d1.y},
+                       Vector2{.x = device_right.d2.x, .y = device_right.d2.y}, thick, collision_color);
+        }
+
         DrawCircleLines((int) x, (int) y, rfid_radius, collision_color);
-//        EndMode2D();
     }
 
 
 private:
     static Vector2 rotate(Vector2 pt, Vector2 center, float angle) {
-        return { .x = (float)((pt.x - center.x) * cos(angle) - (pt.y - center.y) * sin(angle) + center.x),
-                 .y = (float)((pt.x - center.x) * sin(angle) - (pt.y - center.y) * cos(angle) + center.y) };
+        angle = angle * (PI / 180);
+        return {.x = (float) ((pt.x - center.x) * cos(angle) - (pt.y - center.y) * sin(angle) + center.x),
+                .y = (float) ((pt.x - center.x) * sin(angle) + (pt.y - center.y) * cos(angle) + center.y)};
     }
 
-    [[nodiscard]] Rectangle rect() const {
-        return rect(x, y);
-    }
-
-    [[nodiscard]] Rectangle rect(float x, float y) const {
-        return {.x = x - width / 2, .y = y - height / 2, .width = width, .height = height};
+    static Device device_calculate(Vector2 side1, Vector2 side2, float radius) {
+        float r1 = radius, r2 = radius;
+        float x0 = side1.x, x1 = side2.x;
+        float y0 = side1.y, y1 = side2.y;
+        float d = sqrtf((side1.x - side2.x) * (side1.x - side2.x) +
+                        (side1.y - side2.y) * (side1.y - side2.y));
+        float a = (r1 * r1 - r2 * r2 + d * d) / (2 * d);
+        float h = sqrtf(r1 * r1 - a * a);
+        float x2 = x0 + a * (x1 - x0) / d, y2 = y0 + a * (y1 - y0) / d;
+        float x3 = x2 + h * (y1 - y0) / d, y3 = y2 - h * (x1 - x0) / d;
+        return Device{.d1 = {.x = x2, .y = y2}, .d2 = {.x = x3, .y = y3}};
     }
 };
 
@@ -447,6 +474,18 @@ public:
 
     [[nodiscard]] const Resource &resource(ResourceId id) const {
         return resources[id];
+    }
+
+    [[nodiscard]] bool is_collision(Vector2 start, Vector2 stop) const override {
+        auto di = get_tail(start.x, stop.y);
+        if (di < 0 || is_ground(di)) {
+            return true;
+        }
+        di = get_tail(stop.x, stop.y);
+        if (di < 0 || is_ground(di)) {
+            return true;
+        }
+        return false;
     }
 
     [[nodiscard]] bool is_collision(Rectangle rectangle) const override {
@@ -560,8 +599,8 @@ private:
                     if (idx == 0) {
                         continue;
                     }
-                    float dx = (row * TILE_SIZE) + TILE_SIZE / 2;
-                    float dy = (col * TILE_SIZE) + TILE_SIZE / 2;
+                    int dx = (int) (row * TILE_SIZE) + TILE_SIZE / 2;
+                    int dy = (int) (col * TILE_SIZE) + TILE_SIZE / 2;
                     DrawCircleLines(dx, dy, 5, color_ground);
                 }
             }
@@ -587,13 +626,13 @@ private:
         return id > 0 && id < 13;
     }
 
-    int get_tail(float x, float y) const {
+    [[nodiscard]] int get_tail(float x, float y) const {
         size_t col = x / TILE_SIZE;
         size_t row = y / TILE_SIZE;
         if (configuration.map.size <= row || configuration.map.size <= col)
             return -1;
         MapMatrixValue get = matrix_get(&configuration.map, row, col);
-        return reinterpret_cast<size_t>(get);
+        return static_cast<int>(reinterpret_cast<size_t>(get));
     }
 
 public:
@@ -615,7 +654,7 @@ main(int argc, char **argv) {
     g.cow(50, 50);
     g.cow(200, 300);
     g.cow(430, 500);
-    g.add_loader(55, 425);
+    g.add_loader(136, 424);
     while (!WindowShouldClose()) {
         BeginDrawing();
         ClearBackground(RAYWHITE);
@@ -624,8 +663,6 @@ main(int argc, char **argv) {
         EndDrawing();
         if (IsKeyPressed(KEY_C)) {
             TakeScreenshot("export.png");
-//            Image screen = LoadImageFromScreen();
-//            ExportImage(screen, "export.png");
         }
     }
     CloseWindow();
