@@ -632,19 +632,19 @@ private:
         if (loader != nullptr) {
             auto device = loader->get_uv_top();
             if (device.distance >= 0) {
-                DrawCircleLines(device.intersect.x, device.intersect.y, 2, RED);
+                DrawCircleLines((int)device.intersect.x, (int)device.intersect.y, 2.f, RED);
             }
             device = loader->get_uv_bottom();
             if (device.distance >= 0) {
-                DrawCircleLines(device.intersect.x, device.intersect.y, 2, RED);
+                DrawCircleLines((int)device.intersect.x, (int)device.intersect.y, 2.f, RED);
             }
             device = loader->get_uv_left();
             if (device.distance >= 0) {
-                DrawCircleLines(device.intersect.x, device.intersect.y, 2, RED);
+                DrawCircleLines((int)device.intersect.x, (int)device.intersect.y, 2.f, RED);
             }
             device = loader->get_uv_right();
             if (device.distance >= 0) {
-                DrawCircleLines(device.intersect.x, device.intersect.y, 2, RED);
+                DrawCircleLines((int)device.intersect.x, (int)device.intersect.y, 2.f, RED);
             }
         }
     }
