@@ -225,6 +225,12 @@ private:
     const Resource &resource;
 };
 
+struct Device {
+    Vector2 d1, d2;
+    float distance;
+    Vector2 intersect;
+};
+
 class Loader : public Object {
     const float width = 32;
     const float height = 64;
@@ -232,10 +238,7 @@ class Loader : public Object {
     bool collision = false;
     struct Color collision_color = {135, 60, 190, 150};
 
-    struct Device {
-        Vector2 d1, d2;
-        float distance;
-    };
+
     struct Vector2 top_left = {.x = 0, .y = 0};
     struct Vector2 top_right = {.x = 0, .y = 0};
     struct Vector2 bottom_left = {.x = 0, .y = 0};
@@ -250,20 +253,20 @@ class Loader : public Object {
     int point = -1;
     bool point_center = false;
 public:
-    [[nodiscard]] float get_uv_top() const {
-        return device_top.distance;
+    [[nodiscard]] struct Device get_uv_top() const {
+        return device_top;
     }
 
-    [[nodiscard]] float get_uv_bottom() const {
-        return device_bottom.distance;
+    [[nodiscard]] struct Device get_uv_bottom() const {
+        return device_bottom;
     }
 
-    [[nodiscard]] float get_uv_left() const {
-        return device_left.distance;
+    [[nodiscard]] struct Device get_uv_left() const {
+        return device_left;
     }
 
-    [[nodiscard]] float get_uv_right() const {
-        return device_right.distance;
+    [[nodiscard]] struct Device get_uv_right() const {
+        return device_right;
     }
 
     [[nodiscard]] float get_angel() const {
@@ -351,30 +354,32 @@ public:
         point_center = context->rfid_point(x, y);
 
         {
-            Vector2 intersect;
-
-            if (context->is_collision(device_top.d1, device_top.d2, intersect)) {
-                device_top.distance = Vector2Distance(device_top.d2, intersect);
+            if (context->is_collision(device_top.d1, device_top.d2, device_top.intersect)) {
+                device_top.distance = Vector2Distance(device_top.d1, device_top.intersect);
             } else {
                 device_top.distance = -1;
+                device_top.intersect = Vector2Zero();
             }
 
-            if (context->is_collision(device_bottom.d1, device_bottom.d2, intersect)) {
-                device_bottom.distance = Vector2Distance(device_bottom.d2, intersect);
+            if (context->is_collision(device_bottom.d1, device_bottom.d2, device_bottom.intersect)) {
+                device_bottom.distance = Vector2Distance(device_bottom.d1, device_bottom.intersect);
             } else {
                 device_bottom.distance = -1;
+                device_bottom.intersect = Vector2Zero();
             }
 
-            if (context->is_collision(device_left.d1, device_left.d2, intersect)) {
-                device_left.distance = Vector2Distance(device_left.d2, intersect);
+            if (context->is_collision(device_left.d1, device_left.d2, device_left.intersect)) {
+                device_left.distance = Vector2Distance(device_left.d1, device_left.intersect);
             } else {
                 device_left.distance = -1;
+                device_left.intersect = Vector2Zero();
             }
 
-            if (context->is_collision(device_right.d1, device_right.d2, intersect)) {
-                device_right.distance = Vector2Distance(device_right.d2, intersect);
+            if (context->is_collision(device_right.d1, device_right.d2, device_right.intersect)) {
+                device_right.distance = Vector2Distance(device_right.d1, device_right.intersect);
             } else {
                 device_right.distance = -1;
+                device_right.intersect = Vector2Zero();
             }
         }
     }
@@ -483,6 +488,7 @@ public:
             object->render();
         }
         draw_gud();
+        draw_other();
     }
 
     void update() {
@@ -578,10 +584,10 @@ public:
         intersect.x = -1;
         intersect.y = -1;
         if (is_ground(di)) {
-            auto rtl = Vector2{.x = (stop.x / TILE_SIZE) * TILE_SIZE, .y = (stop.y / TILE_SIZE) * TILE_SIZE};
+            auto rtl = Vector2{.x = (float)((int)(stop.x / TILE_SIZE) * TILE_SIZE), .y = (float)((int)(stop.y / TILE_SIZE) * TILE_SIZE)};
             auto rtr = Vector2{.x = rtl.x + TILE_SIZE, .y = rtl.y};
-            auto tbr = Vector2{.x = rtr.x, .y = rtr.y + TILE_SIZE};
-            auto tbl = Vector2{.x = rtl.x, .y = rtr.y + TILE_SIZE};
+            auto tbl = Vector2{.x = rtr.x, .y = rtr.y + TILE_SIZE};
+            auto tbr = Vector2{.x = rtl.x, .y = rtr.y + TILE_SIZE};
 
             if (collision(start, stop, rtl, rtr, intersect)
                 || collision(start, stop, rtr, tbr, intersect)
@@ -622,6 +628,27 @@ public:
     }
 
 private:
+    void draw_other() const {
+        if (loader != nullptr) {
+            auto device = loader->get_uv_top();
+            if (device.distance >= 0) {
+                DrawCircleLines(device.intersect.x, device.intersect.y, 2, RED);
+            }
+            device = loader->get_uv_bottom();
+            if (device.distance >= 0) {
+                DrawCircleLines(device.intersect.x, device.intersect.y, 2, RED);
+            }
+            device = loader->get_uv_left();
+            if (device.distance >= 0) {
+                DrawCircleLines(device.intersect.x, device.intersect.y, 2, RED);
+            }
+            device = loader->get_uv_right();
+            if (device.distance >= 0) {
+                DrawCircleLines(device.intersect.x, device.intersect.y, 2, RED);
+            }
+        }
+    }
+
     void draw_gud() const {
         int row = MARGIN_SIZE;
 
@@ -656,8 +683,8 @@ private:
                      row + height_delta + MARGIN_SIZE, 16, color_gud);
             row += MARGIN_SIZE + 15;
             DrawText(TextFormat("UV. T: %f, B: %f, L: %f, R: %f",
-                                loader->get_uv_top(), loader->get_uv_bottom(),
-                                loader->get_uv_left(), loader->get_uv_right()),
+                                loader->get_uv_top().distance, loader->get_uv_bottom().distance,
+                                loader->get_uv_left().distance, loader->get_uv_right().distance),
                      2 + MARGIN_SIZE,
                      row + height_delta + MARGIN_SIZE, 16, color_gud);
         }
@@ -713,7 +740,7 @@ private:
     }
 
     static bool is_ground(size_t id) {
-        return id > 0 && id < 13;
+        return id >= 0 && id < 13;
     }
 
     [[nodiscard]] int get_tail(float x, float y) const {
