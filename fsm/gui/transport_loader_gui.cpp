@@ -7,6 +7,7 @@
 #include <transport_loader.h>
 #include <common.h>
 #include <raylib.h>
+#include <raymath.h>
 #include <cassert>
 #include <memory>
 #include <vector>
@@ -63,6 +64,8 @@ struct Context {
     [[nodiscard]] virtual int rfid_point(Vector2 center, float radius) const = 0;
 
     [[nodiscard]] virtual bool rfid_point(float x, float y) const = 0;
+
+    [[nodiscard]] virtual bool is_collision(Vector2 start, Vector2 stop, Vector2 &intersection) const = 0;
 };
 
 class Object {
@@ -231,6 +234,7 @@ class Loader : public Object {
 
     struct Device {
         Vector2 d1, d2;
+        float distance;
     };
     struct Vector2 top_left = {.x = 0, .y = 0};
     struct Vector2 top_right = {.x = 0, .y = 0};
@@ -246,6 +250,22 @@ class Loader : public Object {
     int point = -1;
     bool point_center = false;
 public:
+    [[nodiscard]] float get_uv_top() const {
+        return device_top.distance;
+    }
+
+    [[nodiscard]] float get_uv_bottom() const {
+        return device_bottom.distance;
+    }
+
+    [[nodiscard]] float get_uv_left() const {
+        return device_left.distance;
+    }
+
+    [[nodiscard]] float get_uv_right() const {
+        return device_right.distance;
+    }
+
     [[nodiscard]] float get_angel() const {
         return angel;
     }
@@ -324,11 +344,39 @@ public:
         device_top = device_calculate(top_left, top_right, width);
         device_bottom = device_calculate(bottom_right, bottom_left, width);
 
-        device_left = device_calculate(top_left, bottom_left, height);
-        device_right = device_calculate(bottom_right, top_right, height);
+        device_left = device_calculate(bottom_left, top_left, width + 10);
+        device_right = device_calculate(top_right, bottom_right, width + 10);
 
         point = context->rfid_point(Vector2{.x = x, .y = y}, rfid_radius);
         point_center = context->rfid_point(x, y);
+
+        {
+            Vector2 intersect;
+
+            if (context->is_collision(device_top.d1, device_top.d2, intersect)) {
+                device_top.distance = Vector2Distance(device_top.d2, intersect);
+            } else {
+                device_top.distance = -1;
+            }
+
+            if (context->is_collision(device_bottom.d1, device_bottom.d2, intersect)) {
+                device_bottom.distance = Vector2Distance(device_bottom.d2, intersect);
+            } else {
+                device_bottom.distance = -1;
+            }
+
+            if (context->is_collision(device_left.d1, device_left.d2, intersect)) {
+                device_left.distance = Vector2Distance(device_left.d2, intersect);
+            } else {
+                device_left.distance = -1;
+            }
+
+            if (context->is_collision(device_right.d1, device_right.d2, intersect)) {
+                device_right.distance = Vector2Distance(device_right.d2, intersect);
+            } else {
+                device_right.distance = -1;
+            }
+        }
     }
 
     void render() const override {
@@ -508,6 +556,42 @@ public:
         return false;
     }
 
+    [[nodiscard]] bool is_collision(Vector2 start, Vector2 stop, Vector2 &intersect) const override {
+        auto di = get_tail(start.x, start.y);
+
+        intersect.x = -1;
+        intersect.y = -1;
+        if (is_ground(di)) {
+            auto rtl = Vector2{.x = (start.x / TILE_SIZE) * TILE_SIZE, .y = (start.y / TILE_SIZE) * TILE_SIZE};
+            auto rtr = Vector2{.x = rtl.x + TILE_SIZE, .y = rtl.y};
+            auto tbr = Vector2{.x = rtr.x, .y = rtr.y + TILE_SIZE};
+            auto tbl = Vector2{.x = rtl.x, .y = rtr.y + TILE_SIZE};
+
+            if (collision(start, stop, rtl, rtr, intersect)
+                || collision(start, stop, rtr, tbr, intersect)
+                || collision(start, stop, tbr, tbl, intersect)
+                || collision(start, stop, tbl, rtl, intersect))
+                return true;
+        }
+        di = get_tail(stop.x, stop.y);
+
+        intersect.x = -1;
+        intersect.y = -1;
+        if (is_ground(di)) {
+            auto rtl = Vector2{.x = (stop.x / TILE_SIZE) * TILE_SIZE, .y = (stop.y / TILE_SIZE) * TILE_SIZE};
+            auto rtr = Vector2{.x = rtl.x + TILE_SIZE, .y = rtl.y};
+            auto tbr = Vector2{.x = rtr.x, .y = rtr.y + TILE_SIZE};
+            auto tbl = Vector2{.x = rtl.x, .y = rtr.y + TILE_SIZE};
+
+            if (collision(start, stop, rtl, rtr, intersect)
+                || collision(start, stop, rtr, tbr, intersect)
+                || collision(start, stop, tbr, tbl, intersect)
+                || collision(start, stop, tbl, rtl, intersect))
+                return true;
+        }
+        return false;
+    }
+
     [[nodiscard]] bool is_collision(Vector2 center, float radius) const override {
         (void) center;
         (void) radius;
@@ -568,6 +652,12 @@ private:
             row += MARGIN_SIZE + 15;
             DrawText(TextFormat("LDR: [%d, %d],  ANG: %f, POT: %d",
                                 (int) loader->get_x(), (int) loader->get_y(), loader->get_angel(), loader->get_point()),
+                     2 + MARGIN_SIZE,
+                     row + height_delta + MARGIN_SIZE, 16, color_gud);
+            row += MARGIN_SIZE + 15;
+            DrawText(TextFormat("UV. T: %f, B: %f, L: %f, R: %f",
+                                loader->get_uv_top(), loader->get_uv_bottom(),
+                                loader->get_uv_left(), loader->get_uv_right()),
                      2 + MARGIN_SIZE,
                      row + height_delta + MARGIN_SIZE, 16, color_gud);
         }
@@ -633,6 +723,24 @@ private:
             return -1;
         MapMatrixValue get = matrix_get(&configuration.map, row, col);
         return static_cast<int>(reinterpret_cast<size_t>(get));
+    }
+
+    static bool collision(Vector2 start, Vector2 stop, Vector2 ground_start, Vector2 ground_stop, Vector2 &intersect) {
+        float uA = ((ground_stop.x - ground_start.x) * (start.y - ground_start.y) -
+                    (ground_stop.y - ground_start.y) * (start.x - ground_start.x)) /
+                   ((ground_stop.y - ground_start.y) * (stop.x - start.x) -
+                    (ground_stop.x - ground_start.x) * (stop.y - start.y));
+        float uB = ((stop.x - start.x) * (start.y - ground_start.y) - (stop.y - start.y) * (start.x - ground_start.x)) /
+                   ((ground_stop.y - ground_start.y) * (stop.x - start.x) -
+                    (ground_stop.x - ground_start.x) * (stop.y - start.y));
+        if (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1) {
+            intersect.x = start.x + (uA * (stop.x - start.x));
+            intersect.y = start.y + (uA * (stop.y - start.y));
+            return true;
+        }
+        intersect.x = -1;
+        intersect.y = -1;
+        return false;
     }
 
 public:
