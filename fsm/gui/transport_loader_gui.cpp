@@ -11,6 +11,7 @@
 #include <cassert>
 #include <memory>
 #include <vector>
+#include <raymath.h>
 
 struct Configuration configuration;
 
@@ -432,7 +433,7 @@ private:
         float h = sqrtf(r1 * r1 - a * a);
         float x2 = x0 + a * (x1 - x0) / d, y2 = y0 + a * (y1 - y0) / d;
         float x3 = x2 + h * (y1 - y0) / d, y3 = y2 - h * (x1 - x0) / d;
-        return Device{.d1 = {.x = x2, .y = y2}, .d2 = {.x = x3, .y = y3}};
+        return Device{.d1 = {.x = x2, .y = y2}, .d2 = {.x = x3, .y = y3}, .distance = -1, .intersect = {.x = -1, .y = -1}};
     }
 };
 
@@ -568,32 +569,48 @@ public:
         intersect.x = -1;
         intersect.y = -1;
         if (is_ground(di)) {
-            auto rtl = Vector2{.x = (start.x / TILE_SIZE) * TILE_SIZE, .y = (start.y / TILE_SIZE) * TILE_SIZE};
+            auto rtl = Vector2{.x = (float) ((int) (start.x / TILE_SIZE) * TILE_SIZE), .y = (float) (
+                    (int) (start.y / TILE_SIZE) * TILE_SIZE)};
             auto rtr = Vector2{.x = rtl.x + TILE_SIZE, .y = rtl.y};
             auto tbr = Vector2{.x = rtr.x, .y = rtr.y + TILE_SIZE};
             auto tbl = Vector2{.x = rtl.x, .y = rtr.y + TILE_SIZE};
 
-            if (collision(start, stop, rtl, rtr, intersect)
-                || collision(start, stop, rtr, tbr, intersect)
-                || collision(start, stop, tbr, tbl, intersect)
-                || collision(start, stop, tbl, rtl, intersect))
+            if (collision(start, stop, rtl, rtr, intersect)) {
                 return true;
+            }
+            if (collision(start, stop, rtr, tbr, intersect)) {
+                return true;
+            }
+            if (collision(start, stop, tbr, tbl, intersect)) {
+                return true;
+            }
+            if (collision(start, stop, tbl, rtl, intersect)) {
+                return true;
+            }
         }
         di = get_tail(stop.x, stop.y);
 
         intersect.x = -1;
         intersect.y = -1;
         if (is_ground(di)) {
-            auto rtl = Vector2{.x = (float)((int)(stop.x / TILE_SIZE) * TILE_SIZE), .y = (float)((int)(stop.y / TILE_SIZE) * TILE_SIZE)};
+            auto rtl = Vector2{.x = (float) ((int) (stop.x / TILE_SIZE) * TILE_SIZE), .y = (float) (
+                    (int) (stop.y / TILE_SIZE) * TILE_SIZE)};
             auto rtr = Vector2{.x = rtl.x + TILE_SIZE, .y = rtl.y};
             auto tbl = Vector2{.x = rtr.x, .y = rtr.y + TILE_SIZE};
             auto tbr = Vector2{.x = rtl.x, .y = rtr.y + TILE_SIZE};
 
-            if (collision(start, stop, rtl, rtr, intersect)
-                || collision(start, stop, rtr, tbr, intersect)
-                || collision(start, stop, tbr, tbl, intersect)
-                || collision(start, stop, tbl, rtl, intersect))
+            if (collision(start, stop, rtl, rtr, intersect)) {
                 return true;
+            }
+            if (collision(start, stop, rtr, tbr, intersect)) {
+                return true;
+            }
+            if (collision(start, stop, tbr, tbl, intersect)) {
+                return true;
+            }
+            if (collision(start, stop, tbl, rtl, intersect)) {
+                return true;
+            }
         }
         return false;
     }
@@ -632,19 +649,19 @@ private:
         if (loader != nullptr) {
             auto device = loader->get_uv_top();
             if (device.distance >= 0) {
-                DrawCircleLines((int)device.intersect.x, (int)device.intersect.y, 2.f, RED);
+                DrawCircleLines((int) device.intersect.x, (int) device.intersect.y, 2.f, RED);
             }
             device = loader->get_uv_bottom();
             if (device.distance >= 0) {
-                DrawCircleLines((int)device.intersect.x, (int)device.intersect.y, 2.f, RED);
+                DrawCircleLines((int) device.intersect.x, (int) device.intersect.y, 2.f, RED);
             }
             device = loader->get_uv_left();
             if (device.distance >= 0) {
-                DrawCircleLines((int)device.intersect.x, (int)device.intersect.y, 2.f, RED);
+                DrawCircleLines((int) device.intersect.x, (int) device.intersect.y, 2.f, RED);
             }
             device = loader->get_uv_right();
             if (device.distance >= 0) {
-                DrawCircleLines((int)device.intersect.x, (int)device.intersect.y, 2.f, RED);
+                DrawCircleLines((int) device.intersect.x, (int) device.intersect.y, 2.f, RED);
             }
         }
     }
@@ -740,7 +757,7 @@ private:
     }
 
     static bool is_ground(size_t id) {
-        return id >= 0 && id < 13;
+        return id < 13;
     }
 
     [[nodiscard]] int get_tail(float x, float y) const {
@@ -752,17 +769,23 @@ private:
         return static_cast<int>(reinterpret_cast<size_t>(get));
     }
 
-    static bool collision(Vector2 start, Vector2 stop, Vector2 ground_start, Vector2 ground_stop, Vector2 &intersect) {
-        float uA = ((ground_stop.x - ground_start.x) * (start.y - ground_start.y) -
-                    (ground_stop.y - ground_start.y) * (start.x - ground_start.x)) /
-                   ((ground_stop.y - ground_start.y) * (stop.x - start.x) -
-                    (ground_stop.x - ground_start.x) * (stop.y - start.y));
-        float uB = ((stop.x - start.x) * (start.y - ground_start.y) - (stop.y - start.y) * (start.x - ground_start.x)) /
-                   ((ground_stop.y - ground_start.y) * (stop.x - start.x) -
-                    (ground_stop.x - ground_start.x) * (stop.y - start.y));
+    static bool collision(Vector2 start, Vector2 end, Vector2 ground_start, Vector2 ground_end, Vector2 &intersect) {
+        float uA = ((ground_end.x - ground_start.x) * (start.y - ground_start.y) -
+                    (ground_end.y - ground_start.y) * (start.x - ground_start.x)) /
+                   ((ground_end.y - ground_start.y) * (end.x - start.x) -
+                    (ground_end.x - ground_start.x) * (end.y - start.y));
+        float uB = ((end.x - start.x) * (start.y - ground_start.y) - (end.y - start.y) * (start.x - ground_start.x)) /
+                   ((ground_end.y - ground_start.y) * (end.x - start.x) -
+                    (ground_end.x - ground_start.x) * (end.y - start.y));
         if (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1) {
-            intersect.x = start.x + (uA * (stop.x - start.x));
-            intersect.y = start.y + (uA * (stop.y - start.y));
+            intersect.x = start.x + (uA * (end.x - start.x));
+            intersect.y = start.y + (uA * (end.y - start.y));
+            std::cout << "uA: " << uA << ", uB: " << uB
+                      << ", sX: " << start.x << ", sY: " << start.y
+                      << ", eX: " << end.x << ", eY: " << end.y
+                      << ", gsX: " << ground_start.x << ", eY: " << ground_start.y
+                      << ", geX: " << ground_end.x << ", geY: " << ground_end.y
+                      << std::endl;
             return true;
         }
         intersect.x = -1;
