@@ -8,7 +8,9 @@
 #include <common.h>
 #include <raylib.h>
 #include <raymath.h>
+
 #define RAYGUI_IMPLEMENTATION
+
 #include <raygui.h>
 #include <cassert>
 #include <memory>
@@ -132,7 +134,7 @@ public:
         SetTextureFilter(texture, TEXTURE_FILTER_TRILINEAR);
     }
 
-    [[nodiscard]] const Rectangle &rect(int index) const {
+    [[nodiscard]] const Rectangle &rect(size_t index) const {
         assert(index >= 0 && index < rects_length);
         return rects[index];
     }
@@ -145,7 +147,7 @@ public:
         return rects_length;
     }
 
-    void draw(int id, float x, float y) const {
+    void draw(size_t id, float x, float y) const {
         Rectangle src = rect(id), dest =
                 {.x = x, .y = y, .width = size(), .height = size()};
         Vector2 origin = {.x = 0.0f, .y = 0.0f};
@@ -253,6 +255,7 @@ class Loader : public Object {
     float rfid_radius = 5;
     int point = -1;
     bool on_line = false;
+    struct Vector2 direction = {.x = 0, .y = 0};
 public:
     [[nodiscard]] struct Device get_uv_top() const {
         return device_top;
@@ -283,33 +286,46 @@ public:
     }
 
     void update(Context *context, int time) override {
+        const float delta = 0.5;
         float dx = x;
         float dy = y;
         (void) time;
 
+        direction = {.x = 0, .y = 0};
         if (IsKeyDown(KEY_UP)) {
-            dy -= 0.5;
-            if (dy < 0) {
-                dy = 0;
+            direction = {.x = 0, .y = -delta};
+            if (IsKeyDown(KEY_RIGHT)) {
+                direction = {.x = delta, .y = -delta};
             }
+            if (IsKeyDown(KEY_LEFT)) {
+                direction = {.x = -delta, .y = -delta};
+            }
+        } else if (IsKeyDown(KEY_LEFT)) {
+            direction = {.x = -delta, .y = 0};
+            if (IsKeyDown(KEY_DOWN)) {
+                direction = {.x = -delta, .y = delta};
+            }
+        } else if (IsKeyDown(KEY_DOWN)) {
+            direction = {.x = 0, .y = delta};
+            if (IsKeyDown(KEY_RIGHT)) {
+                direction = {.x = delta, .y = delta};
+            }
+        } else if (IsKeyDown(KEY_RIGHT)) {
+            direction = {.x = delta, .y = 0};
         }
-        if (IsKeyDown(KEY_LEFT)) {
-            dx -= 0.5;
-            if (dx < 0) {
-                dx = 0;
-            }
+        dx += direction.x;
+        dy += direction.y;
+        if (dy < 0) {
+            dy = 0;
         }
-        if (IsKeyDown(KEY_DOWN)) {
-            dy += 0.5;
-            if (dy > WINDOW_WIDTH * TILE_SIZE) {
-                dy = WINDOW_WIDTH * TILE_SIZE - MARGIN_SIZE;
-            }
+        if (dx < 0) {
+            dx = 0;
         }
-        if (IsKeyDown(KEY_RIGHT)) {
-            dx += 0.5;
-            if (dx > WINDOW_WIDTH * TILE_SIZE) {
-                dx = WINDOW_WIDTH * TILE_SIZE - MARGIN_SIZE;
-            }
+        if (dy > WINDOW_WIDTH * TILE_SIZE) {
+            dy = WINDOW_WIDTH * TILE_SIZE - MARGIN_SIZE;
+        }
+        if (dx > WINDOW_WIDTH * TILE_SIZE) {
+            dx = WINDOW_WIDTH * TILE_SIZE - MARGIN_SIZE;
         }
 
         if (IsKeyDown(KEY_D)) {
@@ -449,7 +465,7 @@ class Game final : public Context {
 
     struct Color color_ground = {190, 33, 55, 50};
     struct Color color_gud = RED;
-    bool   go = false;
+    bool go = false;
 
     Loader *loader = nullptr;
 public:
@@ -497,7 +513,7 @@ public:
     }
 
     void update() {
-        time = GetTime() * 100;
+        time = (int) GetTime() * 100;
         mouse = GetMousePosition();
 
         for (auto object: objects) {
@@ -626,33 +642,33 @@ public:
     }
 
     [[nodiscard]] int rfid_point(Vector2 center, float radius) const override {
-        size_t col = center.x / TILE_SIZE;
-        size_t row = center.y / TILE_SIZE;
+        auto col = (size_t) (center.x / TILE_SIZE);
+        auto row = (size_t) (center.y / TILE_SIZE);
         auto tail = (size_t) matrix_get(&configuration.paths, row, col);
         if (tail > 0 && tail < 20) {
-            float dx = (col * TILE_SIZE) + TILE_SIZE / 2;
-            float dy = (row * TILE_SIZE) + TILE_SIZE / 2;
+            auto dx = (float) ((col * TILE_SIZE) + (TILE_SIZE / 2));
+            auto dy = (float) ((row * TILE_SIZE) + (TILE_SIZE / 2));
             bool under = CheckCollisionCircles(
                     center, radius, Vector2{.x = dx, .y = dy}, 0.5f);
-            return under ? tail : 0;
+            return under ? (int) tail : 0;
         }
         return -1;
     }
 
     [[nodiscard]] bool rfid_point(float x, float y) const override {
-        size_t col = x / TILE_SIZE;
-        size_t row = y / TILE_SIZE;
-        float dx = (col * TILE_SIZE) + TILE_SIZE / 2;
-        float dy = (row * TILE_SIZE) + TILE_SIZE / 2;
+        auto col = (size_t) (x / TILE_SIZE);
+        auto row = (size_t) (y / TILE_SIZE);
+        auto dx = (float) ((col * TILE_SIZE) + (TILE_SIZE / 2));
+        auto dy = (float) ((row * TILE_SIZE) + (TILE_SIZE / 2));
         auto tail = (size_t) matrix_get(&configuration.paths, row, col);
         return tail > 0 && tail < 20 && dx == x && dy == y;
     }
 
     [[nodiscard]] bool line_point(float x, float y) const override {
-        size_t col = x / TILE_SIZE;
-        size_t row = y / TILE_SIZE;
-        float dx = col * TILE_SIZE;
-        float dy = row * TILE_SIZE;
+        auto col = (size_t) (x / TILE_SIZE);
+        auto row = (size_t) (y / TILE_SIZE);
+        auto dx = (float) (col * TILE_SIZE);
+        auto dy = (float) (row * TILE_SIZE);
         auto tail = (size_t) matrix_get(&configuration.paths, row, col);
         if (tail == 91 || tail == 92) {
             Vector2 sx = {.x = tail == 91 ? dx : dx + TILE_SIZE / 2, .y = tail == 91 ? dy + TILE_SIZE / 2 : dy};
@@ -689,42 +705,43 @@ private:
         int row = MARGIN_SIZE;
 
         DrawText(TextFormat("FPS: %i", GetFPS()), 2 + MARGIN_SIZE,
-                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
         DrawText(TextFormat("TLE: %i", tile_index), 70 + MARGIN_SIZE,
-                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
         DrawText(TextFormat("RSC: %i", resource_index), 130 + MARGIN_SIZE,
-                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
         const Resource &c = resource(static_cast<ResourceId>(resource_index));
-        c.draw(tile_index, 190 + MARGIN_SIZE, row + height_delta + MARGIN_SIZE);
+        c.draw(tile_index, 190 + MARGIN_SIZE, (float) row + height_delta + MARGIN_SIZE);
         DrawRectangleLinesEx(
-                Rectangle{.x = 190 + MARGIN_SIZE, .y = row + height_delta + MARGIN_SIZE,
+                Rectangle{.x = 190 + MARGIN_SIZE, .y = (float) row + height_delta + MARGIN_SIZE,
                         .width = TILE_SIZE, .height = TILE_SIZE}, 1, color_gud);
         DrawText(TextFormat("TIM: %i", time), 220 + MARGIN_SIZE,
-                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
         DrawText(TextFormat("MSE: (%03i, %03i)", (int) mouse.x, (int) mouse.y), 425 + MARGIN_SIZE,
-                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
 
 
         row += MARGIN_SIZE + 15;
         DrawText("R + <Up>/<Down>   : TLE", 2 + MARGIN_SIZE,
-                 row + height_delta + MARGIN_SIZE, 16, color_gud);
+                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
         row += MARGIN_SIZE + 15;
         DrawText("R + <Left>/<Right>: RSC", 2 + MARGIN_SIZE,
-                 row + height_delta + MARGIN_SIZE, 16, color_gud);
-        go = GuiToggle(Rectangle{.x = 2 + MARGIN_SIZE + 190, .y = row + height_delta + MARGIN_SIZE, .width = 30, .height = 16}, "POS", go);
+                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
+        go = GuiToggle(Rectangle{.x = 2 + MARGIN_SIZE + 190, .y = (float) row + height_delta +
+                                                                  MARGIN_SIZE, .width = 30, .height = 16}, "POS", go);
         if (loader != nullptr) {
             row += MARGIN_SIZE + 15;
             DrawText(TextFormat("LDR: [%d, %d],  ANG: %f, POT: %d, ONL: %s",
                                 (int) loader->get_x(), (int) loader->get_y(), loader->get_angel(), loader->get_point(),
                                 loader->get_on_line() ? "true" : "false"),
                      2 + MARGIN_SIZE,
-                     row + height_delta + MARGIN_SIZE, 16, color_gud);
+                     row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
             row += MARGIN_SIZE + 15;
             DrawText(TextFormat("UV. T: %f, B: %f, L: %f, R: %f",
                                 loader->get_uv_top().distance, loader->get_uv_bottom().distance,
                                 loader->get_uv_left().distance, loader->get_uv_right().distance),
                      2 + MARGIN_SIZE,
-                     row + height_delta + MARGIN_SIZE, 16, color_gud);
+                     row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
         }
     }
 
@@ -772,7 +789,7 @@ private:
                 if (i == 0) {
                     continue;
                 }
-                res.draw(i - 1, row * res.size(), col * res.size());
+                res.draw(i - 1, (float) row * res.size(), (float) col * res.size());
             }
         }
     }
@@ -782,14 +799,13 @@ private:
     }
 
     [[nodiscard]] int get_tail(float x, float y) const {
-        size_t col = x / TILE_SIZE;
-        size_t row = y / TILE_SIZE;
+        auto col = (size_t) (x / TILE_SIZE);
+        auto row = (size_t) (y / TILE_SIZE);
         if (configuration.map.size <= row || configuration.map.size <= col)
             return -1;
         MapMatrixValue get = matrix_get(&configuration.map, row, col);
         return static_cast<int>(reinterpret_cast<size_t>(get));
     }
-
 
 
     static bool collision(Vector2 start, Vector2 end, Vector2 ground_start, Vector2 ground_end, Vector2 &intersect) {
