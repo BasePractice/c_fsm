@@ -8,9 +8,12 @@
 #include <common.h>
 #include <raylib.h>
 #include <raymath.h>
+#define RAYGUI_IMPLEMENTATION
+#include <raygui.h>
 #include <cassert>
 #include <memory>
 #include <vector>
+#include <sstream>
 #include <raymath.h>
 
 struct Configuration configuration;
@@ -50,11 +53,6 @@ static int map[] = {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-//static size_t path[] = {
-//        0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-//        7, 7, 7, 7, 7, 7, 7
-//};
-
 struct Context {
     [[nodiscard]] virtual bool is_collision(Rectangle rectangle) const = 0;
 
@@ -65,6 +63,8 @@ struct Context {
     [[nodiscard]] virtual int rfid_point(Vector2 center, float radius) const = 0;
 
     [[nodiscard]] virtual bool rfid_point(float x, float y) const = 0;
+
+    [[nodiscard]] virtual bool line_point(float x, float y) const = 0;
 
     [[nodiscard]] virtual bool is_collision(Vector2 start, Vector2 stop, Vector2 &intersection) const = 0;
 };
@@ -252,7 +252,7 @@ class Loader : public Object {
 
     float rfid_radius = 5;
     int point = -1;
-    bool point_center = false;
+    bool on_line = false;
 public:
     [[nodiscard]] struct Device get_uv_top() const {
         return device_top;
@@ -278,8 +278,8 @@ public:
         return point;
     }
 
-    [[nodiscard]] bool is_point_center() const {
-        return point_center;
+    [[nodiscard]] bool get_on_line() const {
+        return on_line;
     }
 
     void update(Context *context, int time) override {
@@ -345,14 +345,14 @@ public:
         bottom_left = rotate(Vector2{.x = x - width / 2, .y = y + height / 2}, Vector2{.x = x, .y = y}, angel);
         bottom_right = rotate(Vector2{.x = x + width / 2, .y = y + height / 2}, Vector2{.x = x, .y = y}, angel);
 
-        device_top = device_calculate(top_left, top_right, width);
-        device_bottom = device_calculate(bottom_right, bottom_left, width);
+        device_top = device_calculate(top_left, top_right, width / 2 + 5);
+        device_bottom = device_calculate(bottom_right, bottom_left, width / 2 + 5);
 
-        device_left = device_calculate(bottom_left, top_left, width + 10);
-        device_right = device_calculate(top_right, bottom_right, width + 10);
+        device_left = device_calculate(bottom_left, top_left, height / 2 + 2);
+        device_right = device_calculate(top_right, bottom_right, height / 2 + 2);
 
         point = context->rfid_point(Vector2{.x = x, .y = y}, rfid_radius);
-        point_center = context->rfid_point(x, y);
+        on_line = context->line_point(x, y);
 
         {
             if (context->is_collision(device_top.d1, device_top.d2, device_top.intersect)) {
@@ -443,11 +443,13 @@ class Game final : public Context {
     struct Configuration configuration;
     int tile_index = 0, resource_index = 0, time = 0;
     Vector2 mouse;
-    bool visible_debug = true;
+    static bool visible_debug;
+    static std::string last_collision;
     const float height_delta = WINDOW_HEIGHT * 13.5;
 
     struct Color color_ground = {190, 33, 55, 50};
     struct Color color_gud = RED;
+    bool   go = false;
 
     Loader *loader = nullptr;
 public:
@@ -483,13 +485,15 @@ public:
         add(loader);
     }
 
-    void render() const {
+    void render() {
         draw_resources();
         for (auto &object: objects) {
             object->render();
         }
-        draw_gud();
-        draw_other();
+        if (visible_debug) {
+            draw_gud();
+            draw_other();
+        }
     }
 
     void update() {
@@ -644,6 +648,21 @@ public:
         return tail > 0 && tail < 20 && dx == x && dy == y;
     }
 
+    [[nodiscard]] bool line_point(float x, float y) const override {
+        size_t col = x / TILE_SIZE;
+        size_t row = y / TILE_SIZE;
+        float dx = col * TILE_SIZE;
+        float dy = row * TILE_SIZE;
+        auto tail = (size_t) matrix_get(&configuration.paths, row, col);
+        if (tail == 91 || tail == 92) {
+            Vector2 sx = {.x = tail == 91 ? dx : dx + TILE_SIZE / 2, .y = tail == 91 ? dy + TILE_SIZE / 2 : dy};
+            Vector2 ex = {.x = tail == 91 ? dx + TILE_SIZE : dx + TILE_SIZE / 2, .y = tail == 91 ? dy + TILE_SIZE / 2 :
+                                                                                      dy + TILE_SIZE};
+            return CheckCollisionPointLine(Vector2{.x = x, .y = y}, sx, ex, 1);
+        }
+        return false;
+    }
+
 private:
     void draw_other() const {
         if (loader != nullptr) {
@@ -666,7 +685,7 @@ private:
         }
     }
 
-    void draw_gud() const {
+    void draw_gud() {
         int row = MARGIN_SIZE;
 
         DrawText(TextFormat("FPS: %i", GetFPS()), 2 + MARGIN_SIZE,
@@ -692,10 +711,12 @@ private:
         row += MARGIN_SIZE + 15;
         DrawText("R + <Left>/<Right>: RSC", 2 + MARGIN_SIZE,
                  row + height_delta + MARGIN_SIZE, 16, color_gud);
+        go = GuiToggle(Rectangle{.x = 2 + MARGIN_SIZE + 190, .y = row + height_delta + MARGIN_SIZE, .width = 30, .height = 16}, "POS", go);
         if (loader != nullptr) {
             row += MARGIN_SIZE + 15;
-            DrawText(TextFormat("LDR: [%d, %d],  ANG: %f, POT: %d",
-                                (int) loader->get_x(), (int) loader->get_y(), loader->get_angel(), loader->get_point()),
+            DrawText(TextFormat("LDR: [%d, %d],  ANG: %f, POT: %d, ONL: %s",
+                                (int) loader->get_x(), (int) loader->get_y(), loader->get_angel(), loader->get_point(),
+                                loader->get_on_line() ? "true" : "false"),
                      2 + MARGIN_SIZE,
                      row + height_delta + MARGIN_SIZE, 16, color_gud);
             row += MARGIN_SIZE + 15;
@@ -730,7 +751,7 @@ private:
             for (size_t row = 0; row < configuration.paths.size; ++row) {
                 for (size_t col = 0; col < configuration.paths.size; ++col) {
                     auto idx = (size_t) matrix_get(&configuration.paths, col, row);
-                    if (idx == 0) {
+                    if (idx == 0 || idx >= 90) {
                         continue;
                     }
                     int dx = (int) (row * TILE_SIZE) + TILE_SIZE / 2;
@@ -769,7 +790,24 @@ private:
         return static_cast<int>(reinterpret_cast<size_t>(get));
     }
 
+
+
     static bool collision(Vector2 start, Vector2 end, Vector2 ground_start, Vector2 ground_end, Vector2 &intersect) {
+#if 0
+        float A1 = end.y - start.y;
+        float B1 = start.x - end.x;
+        float C1 = A1 * start.x + B1 * start.y;
+        float A2 = ground_end.y - ground_start.y;
+        float B2 = ground_start.x - ground_end.x;
+        float C2 = A2 * ground_start.x + B2 * ground_start.y;
+        float det = A1 * B2 - A2 * B1;
+        if (det != 0) {
+            intersect.x = (B2 * C1 - B1 * C2) / det;
+            intersect.y = (A1 * C2 - A2 * C1) / det;
+            return true;
+        }
+#else
+
         float uA = ((ground_end.x - ground_start.x) * (start.y - ground_start.y) -
                     (ground_end.y - ground_start.y) * (start.x - ground_start.x)) /
                    ((ground_end.y - ground_start.y) * (end.x - start.x) -
@@ -778,16 +816,27 @@ private:
                    ((ground_end.y - ground_start.y) * (end.x - start.x) -
                     (ground_end.x - ground_start.x) * (end.y - start.y));
         if (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1) {
+
             intersect.x = start.x + (uA * (end.x - start.x));
             intersect.y = start.y + (uA * (end.y - start.y));
-            std::cout << "uA: " << uA << ", uB: " << uB
-                      << ", sX: " << start.x << ", sY: " << start.y
-                      << ", eX: " << end.x << ", eY: " << end.y
-                      << ", gsX: " << ground_start.x << ", eY: " << ground_start.y
-                      << ", geX: " << ground_end.x << ", geY: " << ground_end.y
-                      << std::endl;
+            if (visible_debug) {
+                std::stringstream ss;
+                std::string collision;
+
+                ss << "uA: " << uA << ", uB: " << uB
+                   << ", sX: " << start.x << ", sY: " << start.y
+                   << ", eX: " << end.x << ", eY: " << end.y
+                   << ", gsX: " << ground_start.x << ", eY: " << ground_start.y
+                   << ", geX: " << ground_end.x << ", geY: " << ground_end.y;
+                collision = ss.str();
+                if (last_collision != collision) {
+                    std::cout << collision << std::endl;
+                    last_collision = collision;
+                }
+            }
             return true;
         }
+#endif
         intersect.x = -1;
         intersect.y = -1;
         return false;
@@ -801,6 +850,9 @@ public:
         }
     }
 };
+
+std::string Game::last_collision = {};
+bool Game::visible_debug = true;
 
 int
 main(int argc, char **argv) {
