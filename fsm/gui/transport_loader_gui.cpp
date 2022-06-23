@@ -1,9 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
-#include <cstdint>
 #include <cmath>
 #include <iostream>
-#include <configuration.h>
 #include <transport_loader.h>
 #include <common.h>
 #include <raylib.h>
@@ -136,7 +134,7 @@ public:
 
     [[nodiscard]] const Rectangle &rect(size_t index) const {
         assert(index >= 0 && index < rects_length);
-        return rects[index];
+        return rects[(std::ptrdiff_t) index];
     }
 
     [[nodiscard]] float size() const {
@@ -169,7 +167,7 @@ public:
     }
 };
 
-class Cow final : public Object {
+class [[maybe_unused]] Cow final : public Object {
     int count;
 public:
     Cow(const Resource &resource) : resource(resource) {
@@ -237,7 +235,7 @@ struct Device {
 class Loader : public Object {
     const float width = 32;
     const float height = 64;
-    float angel = 0.f;
+    float angle = 0.f;
     bool collision = false;
     struct Color collision_color = {135, 60, 190, 150};
 
@@ -247,15 +245,14 @@ class Loader : public Object {
     struct Vector2 bottom_left = {.x = 0, .y = 0};
     struct Vector2 bottom_right = {.x = 0, .y = 0};
 
-    struct Device device_top;
-    struct Device device_bottom;
-    struct Device device_left;
-    struct Device device_right;
+    struct Device device_top = {.d1 = {.x = 0, .y = 0}, .d2 = {.x = 0, .y = 0}, .distance = 0, .intersect = {.x = 0, .y = 0}};
+    struct Device device_bottom = {.d1 = {.x = 0, .y = 0}, .d2 = {.x = 0, .y = 0}, .distance = 0, .intersect = {.x = 0, .y = 0}};
+    struct Device device_left = {.d1 = {.x = 0, .y = 0}, .d2 = {.x = 0, .y = 0}, .distance = 0, .intersect = {.x = 0, .y = 0}};
+    struct Device device_right = {.d1 = {.x = 0, .y = 0}, .d2 = {.x = 0, .y = 0}, .distance = 0, .intersect = {.x = 0, .y = 0}};
 
     float rfid_radius = 5;
     int point = -1;
     bool on_line = false;
-    struct Vector2 direction = {.x = 0, .y = 0};
 public:
     [[nodiscard]] struct Device get_uv_top() const {
         return device_top;
@@ -274,7 +271,7 @@ public:
     }
 
     [[nodiscard]] float get_angel() const {
-        return angel;
+        return angle;
     }
 
     [[nodiscard]] int get_point() const {
@@ -287,34 +284,50 @@ public:
 
     void update(Context *context, int time) override {
         const float delta = 0.5;
+        bool up = false, down = false;
         float dx = x;
         float dy = y;
+        float rotate_angle = angle;
         (void) time;
 
-        direction = {.x = 0, .y = 0};
-        if (IsKeyDown(KEY_UP)) {
-            direction = {.x = 0, .y = -delta};
-            if (IsKeyDown(KEY_RIGHT)) {
-                direction = {.x = delta, .y = -delta};
+        if (IsKeyDown(KEY_D)) {
+            rotate_angle += 0.5;
+            if (rotate_angle >= 359.8) {
+                rotate_angle = 0;
             }
-            if (IsKeyDown(KEY_LEFT)) {
-                direction = {.x = -delta, .y = -delta};
-            }
-        } else if (IsKeyDown(KEY_LEFT)) {
-            direction = {.x = -delta, .y = 0};
-            if (IsKeyDown(KEY_DOWN)) {
-                direction = {.x = -delta, .y = delta};
-            }
-        } else if (IsKeyDown(KEY_DOWN)) {
-            direction = {.x = 0, .y = delta};
-            if (IsKeyDown(KEY_RIGHT)) {
-                direction = {.x = delta, .y = delta};
-            }
-        } else if (IsKeyDown(KEY_RIGHT)) {
-            direction = {.x = delta, .y = 0};
         }
-        dx += direction.x;
-        dy += direction.y;
+        if (IsKeyDown(KEY_A)) {
+            rotate_angle -= 0.5;
+            if (rotate_angle < 0.2) {
+                rotate_angle = 360;
+            }
+        }
+
+        if (IsKeyDown(KEY_UP)) {
+            up = true;
+        } else if (IsKeyDown(KEY_DOWN)) {
+            down = true;
+        }
+
+        float ddx = sin(rotate_angle * (PI / 180));
+        float ddy = cos(rotate_angle * (PI / 180));
+        float direction = 1;
+        if (up) {
+            if ( rotate_angle == 90 || rotate_angle == 180)
+                direction = -direction;
+            dx += ddx * -direction;
+//            dx -= sin(rotate_angle);
+            dy += ddy * -direction;
+//            dy -= cos(rotate_angle);
+        } else if (down) {
+            if ( rotate_angle == 90 || rotate_angle == 180)
+                direction = -direction;
+            dx += ddx * direction;
+//            dx += sin(rotate_angle);
+            dy += ddy * direction;
+//            dy += cos(rotate_angle);
+        }
+
         if (dy < 0) {
             dy = 0;
         }
@@ -328,24 +341,15 @@ public:
             dx = WINDOW_WIDTH * TILE_SIZE - MARGIN_SIZE;
         }
 
-        if (IsKeyDown(KEY_D)) {
-            angel += 0.5;
-            if (angel >= 359.8) {
-                angel = 0;
-            }
-        }
-        if (IsKeyDown(KEY_A)) {
-            angel -= 0.5;
-            if (angel < 0.2) {
-                angel = 360;
-            }
-        }
-
-        {
-            auto dtl = rotate(Vector2{.x = dx - width / 2, .y = dy - height / 2}, Vector2{.x = dx, .y = dy}, angel);
-            auto dtr = rotate(Vector2{.x = dx + width / 2, .y = dy - height / 2}, Vector2{.x = dx, .y = dy}, angel);
-            auto dbl = rotate(Vector2{.x = dx - width / 2, .y = dy + height / 2}, Vector2{.x = dx, .y = dy}, angel);
-            auto dbr = rotate(Vector2{.x = dx + width / 2, .y = dy + height / 2}, Vector2{.x = dx, .y = dy}, angel);
+        if (dx != x || dy != y || angle != rotate_angle) {
+            auto dtl = rotate(Vector2{.x = dx - width / 2, .y = dy - height / 2}, Vector2{.x = dx, .y = dy},
+                              rotate_angle);
+            auto dtr = rotate(Vector2{.x = dx + width / 2, .y = dy - height / 2}, Vector2{.x = dx, .y = dy},
+                              rotate_angle);
+            auto dbl = rotate(Vector2{.x = dx - width / 2, .y = dy + height / 2}, Vector2{.x = dx, .y = dy},
+                              rotate_angle);
+            auto dbr = rotate(Vector2{.x = dx + width / 2, .y = dy + height / 2}, Vector2{.x = dx, .y = dy},
+                              rotate_angle);
 
             collision = context->is_collision(dtl, dtr);
             collision |= context->is_collision(dtr, dbr);
@@ -355,11 +359,12 @@ public:
                 x = dx;
                 y = dy;
             }
+            angle = rotate_angle;
         }
-        top_left = rotate(Vector2{.x = x - width / 2, .y = y - height / 2}, Vector2{.x = x, .y = y}, angel);
-        top_right = rotate(Vector2{.x = x + width / 2, .y = y - height / 2}, Vector2{.x = x, .y = y}, angel);
-        bottom_left = rotate(Vector2{.x = x - width / 2, .y = y + height / 2}, Vector2{.x = x, .y = y}, angel);
-        bottom_right = rotate(Vector2{.x = x + width / 2, .y = y + height / 2}, Vector2{.x = x, .y = y}, angel);
+        top_left = rotate(Vector2{.x = x - width / 2, .y = y - height / 2}, Vector2{.x = x, .y = y}, angle);
+        top_right = rotate(Vector2{.x = x + width / 2, .y = y - height / 2}, Vector2{.x = x, .y = y}, angle);
+        bottom_left = rotate(Vector2{.x = x - width / 2, .y = y + height / 2}, Vector2{.x = x, .y = y}, angle);
+        bottom_right = rotate(Vector2{.x = x + width / 2, .y = y + height / 2}, Vector2{.x = x, .y = y}, angle);
 
         device_top = device_calculate(top_left, top_right, width / 2 + 5);
         device_bottom = device_calculate(bottom_right, bottom_left, width / 2 + 5);
@@ -646,8 +651,8 @@ public:
         auto row = (size_t) (center.y / TILE_SIZE);
         auto tail = (size_t) matrix_get(&configuration.paths, row, col);
         if (tail > 0 && tail < 20) {
-            auto dx = (float) ((col * TILE_SIZE) + (TILE_SIZE / 2));
-            auto dy = (float) ((row * TILE_SIZE) + (TILE_SIZE / 2));
+            auto dx = (float) (((float) col * TILE_SIZE) + ((float) TILE_SIZE / 2));
+            auto dy = (float) (((float) row * TILE_SIZE) + ((float) TILE_SIZE / 2));
             bool under = CheckCollisionCircles(
                     center, radius, Vector2{.x = dx, .y = dy}, 0.5f);
             return under ? (int) tail : 0;
@@ -658,8 +663,8 @@ public:
     [[nodiscard]] bool rfid_point(float x, float y) const override {
         auto col = (size_t) (x / TILE_SIZE);
         auto row = (size_t) (y / TILE_SIZE);
-        auto dx = (float) ((col * TILE_SIZE) + (TILE_SIZE / 2));
-        auto dy = (float) ((row * TILE_SIZE) + (TILE_SIZE / 2));
+        auto dx = (float) (((float) col * TILE_SIZE) + ((float) TILE_SIZE / 2));
+        auto dy = (float) (((float) row * TILE_SIZE) + ((float) TILE_SIZE / 2));
         auto tail = (size_t) matrix_get(&configuration.paths, row, col);
         return tail > 0 && tail < 20 && dx == x && dy == y;
     }
@@ -671,9 +676,10 @@ public:
         auto dy = (float) (row * TILE_SIZE);
         auto tail = (size_t) matrix_get(&configuration.paths, row, col);
         if (tail == 91 || tail == 92) {
-            Vector2 sx = {.x = tail == 91 ? dx : dx + TILE_SIZE / 2, .y = tail == 91 ? dy + TILE_SIZE / 2 : dy};
-            Vector2 ex = {.x = tail == 91 ? dx + TILE_SIZE : dx + TILE_SIZE / 2, .y = tail == 91 ? dy + TILE_SIZE / 2 :
-                                                                                      dy + TILE_SIZE};
+            Vector2 sx = {.x = tail == 91 ? dx : dx + (float) TILE_SIZE / 2,
+                    .y = tail == 91 ? dy + (float) TILE_SIZE / 2 : dy};
+            Vector2 ex = {.x = tail == 91 ? dx + (float) TILE_SIZE : dx + (float) TILE_SIZE / 2,
+                    .y = tail == 91 ? dy + (float) TILE_SIZE / 2 : dy + (float) TILE_SIZE};
             return CheckCollisionPointLine(Vector2{.x = x, .y = y}, sx, ex, 1);
         }
         return false;
