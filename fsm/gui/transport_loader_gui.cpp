@@ -54,21 +54,7 @@ static int map[] = {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
-struct Context {
-    [[nodiscard]] virtual bool is_collision(Rectangle rectangle) const = 0;
-
-    [[nodiscard]] virtual bool is_collision(Vector2 center, float radius) const = 0;
-
-    [[nodiscard]] virtual bool is_collision(Vector2 start, Vector2 stop) const = 0;
-
-    [[nodiscard]] virtual int rfid_point(Vector2 center, float radius) const = 0;
-
-    [[nodiscard]] virtual bool rfid_point(float x, float y) const = 0;
-
-    [[nodiscard]] virtual bool line_point(float x, float y) const = 0;
-
-    [[nodiscard]] virtual bool is_collision(Vector2 start, Vector2 stop, Vector2 &intersection) const = 0;
-
+struct Readable {
     [[nodiscard]] virtual bool rotate_right() const {
         return IsKeyDown(KEY_D);
     }
@@ -92,6 +78,147 @@ struct Context {
     [[nodiscard]] virtual bool do_right() const {
         return IsKeyDown(KEY_RIGHT);
     }
+};
+
+struct Writable {
+    virtual void rfid_point(int point) {
+    }
+
+    virtual void on_line(bool line) {
+    }
+};
+
+struct Engine {
+    Engine() : _default_readable(new Readable), _read(new Readable), _write(new Writable) {}
+
+    explicit Engine(Readable *read, Writable *write) : _enable_default_readable(true), _default_readable(new Readable),
+    _read(read), _write(write) {}
+
+    void set_default_readable(bool value) {
+        _enable_default_readable = value;
+    }
+
+    virtual void tick() {
+
+    }
+
+    [[nodiscard]] virtual Readable *read() const {
+        if (_default_readable)
+            return _default_readable;
+        return _read;
+    }
+
+    [[nodiscard]] virtual Writable *write() const {
+        return _write;
+    }
+
+protected:
+    bool            _enable_default_readable;
+    Readable *const _default_readable;
+private:
+    Readable *const _read;
+    Writable *const _write;
+};
+
+struct EngineStated : public Engine, public Readable, public Writable {
+    bool _rotate_right = false;
+    bool _rotate_left = false;
+    bool _do_gas = false;
+    bool _do_break = false;
+    bool _do_left = false;
+    bool _do_right = false;
+
+    bool _on_line = false;
+    int _rfid_point = -1;
+
+    explicit EngineStated(void (*tf)(EngineStated *engine) = [](EngineStated *engine) {}) : _tf(tf) {}
+
+    [[nodiscard]] bool rotate_right() const override {
+        return _rotate_right;
+    }
+
+    [[nodiscard]] bool rotate_left() const override {
+        return _rotate_left;
+    }
+
+    [[nodiscard]] bool do_gas() const override {
+        return _do_gas;
+    }
+
+    [[nodiscard]] bool do_break() const override {
+        return _do_break;
+    }
+
+    [[nodiscard]] bool do_left() const override {
+        return _do_left;
+    }
+
+    [[nodiscard]] bool do_right() const override {
+        return _do_right;
+    }
+
+    [[nodiscard]] Readable *read() const override {
+        if (_enable_default_readable)
+            return _default_readable;
+        return (Readable *) this;
+    }
+
+    [[nodiscard]] Writable *write() const override {
+        return (Writable *) this;
+    }
+
+    void rfid_point(int point) override {
+        _rfid_point = point;
+    }
+
+    void on_line(bool line) override {
+        _on_line = line;
+    }
+
+    void tick() override {
+        (*_tf)(this);
+    }
+
+private:
+    void reset() {
+        _on_line = false;
+        _rfid_point = -1;
+        _rotate_right = false;
+        _rotate_left = false;
+        _do_gas = false;
+        _do_break = false;
+        _do_left = false;
+        _do_right = false;
+    }
+
+    void (*_tf)(EngineStated *engine);
+};
+
+struct Context {
+    Context() : _engine(new Engine) {}
+
+    explicit Context(Engine *engine) : _engine(engine) {}
+
+    [[nodiscard]] virtual bool is_collision(Rectangle rectangle) const = 0;
+
+    [[nodiscard]] virtual bool is_collision(Vector2 center, float radius) const = 0;
+
+    [[nodiscard]] virtual bool is_collision(Vector2 start, Vector2 stop) const = 0;
+
+    [[nodiscard]] virtual int rfid_point(Vector2 center, float radius) const = 0;
+
+    [[nodiscard]] virtual bool rfid_point(float x, float y) const = 0;
+
+    [[nodiscard]] virtual bool line_point(float x, float y) const = 0;
+
+    [[nodiscard]] virtual bool is_collision(Vector2 start, Vector2 stop, Vector2 &intersection) const = 0;
+
+    [[nodiscard]] virtual std::shared_ptr<Engine> engine() const {
+        return _engine;
+    }
+
+private:
+    const std::shared_ptr<Engine> _engine;
 };
 
 class Object {
@@ -313,14 +440,15 @@ public:
         float dy = y;
         float rotate_angle = angle;
         (void) time;
+        auto input = context->engine()->read();
 
-        if (context->rotate_right()) {
+        if (input->rotate_right()) {
             rotate_angle += 0.5;
             if (rotate_angle >= 359.8) {
                 rotate_angle = 0;
             }
         }
-        if (context->rotate_left()) {
+        if (input->rotate_left()) {
             rotate_angle -= 0.5;
             if (rotate_angle < 0.2) {
                 rotate_angle = 360;
@@ -330,14 +458,14 @@ public:
         float ddx = sin(rotate_angle * (PI / 180));
         float ddy = cos(rotate_angle * (PI / 180));
         float direction = 1;
-        if (context->do_gas()) {
+        if (input->do_gas()) {
             if ((rotate_angle >= 80 && rotate_angle < 100) || (rotate_angle >= 250 && rotate_angle < 290))
                 direction = -direction;
             dx += ddx * -direction;
 //            dx -= sin(rotate_angle);
             dy += ddy * -direction;
 //            dy -= cos(rotate_angle);
-        } else if (context->do_break()) {
+        } else if (input->do_break()) {
             if ((rotate_angle >= 80 && rotate_angle < 100) || (rotate_angle >= 250 && rotate_angle < 290))
                 direction = -direction;
             dx += ddx * direction;
@@ -346,9 +474,9 @@ public:
 //            dy += cos(rotate_angle);
         }
 
-        if (context->do_right()) {
+        if (input->do_right()) {
             dx += delta;
-        } else if (context->do_left()) {
+        } else if (input->do_left()) {
             dx -= delta;
         }
 
@@ -493,6 +621,7 @@ class Game final : public Context {
     struct Color color_ground = {190, 33, 55, 50};
     struct Color color_gud = RED;
     bool go = false;
+    bool default_readable = true;
 
     Loader *loader = nullptr;
 public:
@@ -500,7 +629,9 @@ public:
         Grass, Dirt, Things, Cow
     };
 
-    explicit Game(const char *const configuration_file) : resources(4), configuration{}, mouse{} {
+    explicit Game(Engine *engine, const char *const configuration_file) : Context(engine), resources(4),
+                                                                          configuration{},
+                                                                          mouse{} {
         resources[Grass].load("assets/Tilesets/Grass.png");
         resources[Dirt].load("assets/Tilesets/Tilled.Dirt.png");
         resources[Things].load("assets/Objects/Basic.Grass.Biom.Things.1.png");
@@ -529,28 +660,32 @@ public:
     }
 
     void render() {
-        int row = TILE_SIZE;
-
         draw_resources();
         for (auto &object: objects) {
             object->render();
         }
+        draw_gud();
         if (visible_debug) {
-            row = draw_gud();
             draw_other();
         }
-        row += MARGIN_SIZE + 15;
-        visible_debug = GuiToggle(Rectangle{.x = 2 + MARGIN_SIZE + 190,
-                                          .y = (float) row + height_delta + MARGIN_SIZE, .width = 30, .height = 16},
-                                  "DBG", visible_debug);
     }
 
     void update() {
+        auto engine = this->engine();
+        auto writable = engine->write();
+        if (go) {
+            engine->tick();
+        }
+
         time = (int) GetTime() * 100;
         mouse = GetMousePosition();
 
         for (auto object: objects) {
             object->update(this, time);
+        }
+        if (loader != nullptr) {
+            writable->on_line(loader->get_on_line());
+            writable->rfid_point(loader->get_point());
         }
 
         if (IsKeyPressed(KEY_LEFT) && IsKeyDown(KEY_R)) {
@@ -578,6 +713,7 @@ public:
                 tile_index = at.count() - 1;
             }
         }
+        engine->set_default_readable(default_readable);
     }
 
     [[nodiscard]] const Resource &resource(ResourceId id) const {
@@ -715,7 +851,7 @@ public:
 
 private:
     void draw_other() const {
-        if (loader != nullptr) {
+        if (loader != nullptr && visible_debug) {
             auto device = loader->get_uv_top();
             if (device.distance >= 0) {
                 DrawCircleLines((int) device.intersect.x, (int) device.intersect.y, 2.f, RED);
@@ -737,33 +873,43 @@ private:
 
     int draw_gud() {
         int row = MARGIN_SIZE;
+        float button_offset = 2 + MARGIN_SIZE;
 
-        DrawText(TextFormat("FPS: %i", GetFPS()), 2 + MARGIN_SIZE,
-                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
-        DrawText(TextFormat("TLE: %i", tile_index), 70 + MARGIN_SIZE,
-                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
-        DrawText(TextFormat("RSC: %i", resource_index), 130 + MARGIN_SIZE,
-                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
-        const Resource &c = resource(static_cast<ResourceId>(resource_index));
-        c.draw(tile_index, 190 + MARGIN_SIZE, (float) row + height_delta + MARGIN_SIZE);
-        DrawRectangleLinesEx(
-                Rectangle{.x = 190 + MARGIN_SIZE, .y = (float) row + height_delta + MARGIN_SIZE,
-                        .width = TILE_SIZE, .height = TILE_SIZE}, 1, color_gud);
-        DrawText(TextFormat("TIM: %i", time), 220 + MARGIN_SIZE,
-                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
-        DrawText(TextFormat("MSE: (%03i, %03i)", (int) mouse.x, (int) mouse.y), 425 + MARGIN_SIZE,
-                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
+        if (visible_debug) {
+            DrawText(TextFormat("FPS: %i", GetFPS()), 2 + MARGIN_SIZE,
+                     row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
+            DrawText(TextFormat("TLE: %i", tile_index), 70 + MARGIN_SIZE,
+                     row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
+            DrawText(TextFormat("RSC: %i", resource_index), 130 + MARGIN_SIZE,
+                     row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
+            const Resource &c = resource(static_cast<ResourceId>(resource_index));
+            c.draw(tile_index, 190 + MARGIN_SIZE, (float) row + height_delta + MARGIN_SIZE);
+            DrawRectangleLinesEx(
+                    Rectangle{.x = 190 + MARGIN_SIZE, .y = (float) row + height_delta + MARGIN_SIZE,
+                            .width = TILE_SIZE, .height = TILE_SIZE}, 1, color_gud);
+            DrawText(TextFormat("TIM: %i", time), 220 + MARGIN_SIZE,
+                     row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
+            DrawText(TextFormat("MSE: (%03i, %03i)", (int) mouse.x, (int) mouse.y), 425 + MARGIN_SIZE,
+                     row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
 
 
-        row += MARGIN_SIZE + 15;
-        DrawText("R + <Up>/<Down>   : TLE", 2 + MARGIN_SIZE,
-                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
-        row += MARGIN_SIZE + 15;
-        DrawText("R + <Left>/<Right>: RSC", 2 + MARGIN_SIZE,
-                 row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
-        go = GuiToggle(Rectangle{.x = 2 + MARGIN_SIZE + 190, .y = (float) row + height_delta +
-                                                                  MARGIN_SIZE, .width = 30, .height = 16}, "POS", go);
-        if (loader != nullptr) {
+            row += MARGIN_SIZE + 15;
+            DrawText("R + <Up>/<Down>   : TLE", 2 + MARGIN_SIZE,
+                     row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
+            row += MARGIN_SIZE + 15;
+            DrawText("R + <Left>/<Right>: RSC", 2 + MARGIN_SIZE,
+                     row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
+            button_offset += 190;
+        }
+        go = GuiToggle(Rectangle{.x = button_offset, .y = (float) row + height_delta +
+                                                          MARGIN_SIZE, .width = 30, .height = 16}, "POS", go);
+        visible_debug = GuiToggle(Rectangle{.x = button_offset + 40,
+                                          .y = (float) row + height_delta + MARGIN_SIZE, .width = 30, .height = 16},
+                                  "DBG", visible_debug);
+        default_readable = GuiToggle(Rectangle{.x = button_offset + 80,
+                                          .y = (float) row + height_delta + MARGIN_SIZE, .width = 30, .height = 16},
+                                  "RDR", default_readable);
+        if (loader != nullptr && visible_debug) {
             row += MARGIN_SIZE + 15;
             DrawText(TextFormat("LDR: [%d, %d],  ANG: %f, POT: %d, ONL: %s",
                                 (int) loader->get_x(), (int) loader->get_y(), loader->get_angel(), loader->get_point(),
@@ -908,9 +1054,13 @@ int
 main(int argc, char **argv) {
     (void) argc;
     (void) argv;
+    auto engine = new EngineStated([](EngineStated *engine) {
+        std::cout << "EngineStated: tick" << std::endl;
+    });
+
     InitWindow(WINDOW_WIDTH * TILE_SIZE + MARGIN_SIZE, WINDOW_HEIGHT * TILE_SIZE + MARGIN_SIZE, "Транспортер");
     SetTargetFPS(60);
-    Game g("factory.json");
+    Game g(engine, "factory.json");
     g.cow(50, 50);
     g.cow(200, 300);
     g.cow(430, 500);
