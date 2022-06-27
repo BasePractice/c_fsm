@@ -1131,6 +1131,7 @@ main(int argc, char **argv) {
         auto pos = reinterpret_cast<Position *>(ud);
         pos->angle = engine->_angle;
         pos->point = engine->_rfid_point;
+        pos->on_line = engine->_on_line;
         pos->distance_top = engine->_distance_top;
         pos->distance_bottom = engine->_distance_bottom;
         pos->distance_left = engine->_distance_left;
@@ -1186,6 +1187,27 @@ main(int argc, char **argv) {
                 case POSITION_ANGLE_90:
                     fprintf(stdout, "POSITION_ANGLE_90: %f\n", engine->_angle);
                     break;
+                case POSITION_SEARCHLINEDETECTWALL:
+                    fprintf(stdout, "POSITION_SEARCHLINEDETECTWALL\n");
+                    break;
+                case POSITION_SEARCHLINEBOTTOM:
+                    fprintf(stdout, "POSITION_SEARCHLINEBOTTOM\n");
+                    break;
+                case POSITION_STOP:
+                    fprintf(stdout, "POSITION_STOP\n");
+                    break;
+                case POSITION_SEARCHLINELEFT:
+                    fprintf(stdout, "POSITION_SEARCHLINELEFT\n");
+                    break;
+                case POSITION_SEARCHLINERIGHT:
+                    fprintf(stdout, "POSITION_SEARCHLINERIGHT\n");
+                    break;
+                case POSITION_SEARCHLINEEND:
+                    fprintf(stdout, "POSITION_SEARCHLINEEND\n");
+                    break;
+                case POSITION_SEARCHLINEUP:
+                    fprintf(stdout, "POSITION_SEARCHLINEUP\n");
+                    break;
             }
         }
     };
@@ -1207,7 +1229,7 @@ main(int argc, char **argv) {
         if (IsKeyPressed(KEY_C)) {
             TakeScreenshot("export.png");
         }
-        engine->reset();
+//        engine->reset();
     }
     CloseWindow();
     matrix_destroy(&configuration.map);
