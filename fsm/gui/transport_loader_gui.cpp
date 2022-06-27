@@ -17,6 +17,7 @@
 #include <raymath.h>
 
 struct Configuration configuration;
+static bool visible_debug = true;
 
 #define TILE_SIZE     16
 #define MARGIN_SIZE   2
@@ -67,6 +68,30 @@ struct Context {
     [[nodiscard]] virtual bool line_point(float x, float y) const = 0;
 
     [[nodiscard]] virtual bool is_collision(Vector2 start, Vector2 stop, Vector2 &intersection) const = 0;
+
+    [[nodiscard]] virtual bool rotate_right() const {
+        return IsKeyDown(KEY_D);
+    }
+
+    [[nodiscard]] virtual bool rotate_left() const {
+        return IsKeyDown(KEY_A);
+    }
+
+    [[nodiscard]] virtual bool do_gas() const {
+        return IsKeyDown(KEY_UP);
+    }
+
+    [[nodiscard]] virtual bool do_break() const {
+        return IsKeyDown(KEY_DOWN);
+    }
+
+    [[nodiscard]] virtual bool do_left() const {
+        return IsKeyDown(KEY_LEFT);
+    }
+
+    [[nodiscard]] virtual bool do_right() const {
+        return IsKeyDown(KEY_RIGHT);
+    }
 };
 
 class Object {
@@ -284,48 +309,47 @@ public:
 
     void update(Context *context, int time) override {
         const float delta = 0.5;
-        bool up = false, down = false;
         float dx = x;
         float dy = y;
         float rotate_angle = angle;
         (void) time;
 
-        if (IsKeyDown(KEY_D)) {
+        if (context->rotate_right()) {
             rotate_angle += 0.5;
             if (rotate_angle >= 359.8) {
                 rotate_angle = 0;
             }
         }
-        if (IsKeyDown(KEY_A)) {
+        if (context->rotate_left()) {
             rotate_angle -= 0.5;
             if (rotate_angle < 0.2) {
                 rotate_angle = 360;
             }
         }
 
-        if (IsKeyDown(KEY_UP)) {
-            up = true;
-        } else if (IsKeyDown(KEY_DOWN)) {
-            down = true;
-        }
-
         float ddx = sin(rotate_angle * (PI / 180));
         float ddy = cos(rotate_angle * (PI / 180));
         float direction = 1;
-        if (up) {
-            if ( rotate_angle == 90 || rotate_angle == 180)
+        if (context->do_gas()) {
+            if ((rotate_angle >= 80 && rotate_angle < 100) || (rotate_angle >= 250 && rotate_angle < 290))
                 direction = -direction;
             dx += ddx * -direction;
 //            dx -= sin(rotate_angle);
             dy += ddy * -direction;
 //            dy -= cos(rotate_angle);
-        } else if (down) {
-            if ( rotate_angle == 90 || rotate_angle == 180)
+        } else if (context->do_break()) {
+            if ((rotate_angle >= 80 && rotate_angle < 100) || (rotate_angle >= 250 && rotate_angle < 290))
                 direction = -direction;
             dx += ddx * direction;
 //            dx += sin(rotate_angle);
             dy += ddy * direction;
 //            dy += cos(rotate_angle);
+        }
+
+        if (context->do_right()) {
+            dx += delta;
+        } else if (context->do_left()) {
+            dx -= delta;
         }
 
         if (dy < 0) {
@@ -422,7 +446,7 @@ public:
         DrawLineEx(bottom_right, bottom_left, thick, color);
         DrawLineEx(bottom_left, top_left, thick, color);
 
-        {
+        if (visible_debug) {
             DrawLineEx(Vector2{.x = device_top.d1.x, .y = device_top.d1.y},
                        Vector2{.x = device_top.d2.x, .y = device_top.d2.y}, thick, collision_color);
             DrawLineEx(Vector2{.x = device_bottom.d1.x, .y = device_bottom.d1.y},
@@ -431,9 +455,8 @@ public:
                        Vector2{.x = device_left.d2.x, .y = device_left.d2.y}, thick, collision_color);
             DrawLineEx(Vector2{.x = device_right.d1.x, .y = device_right.d1.y},
                        Vector2{.x = device_right.d2.x, .y = device_right.d2.y}, thick, collision_color);
+            DrawCircleLines((int) x, (int) y, rfid_radius, collision_color);
         }
-
-        DrawCircleLines((int) x, (int) y, rfid_radius, collision_color);
     }
 
 
@@ -464,7 +487,6 @@ class Game final : public Context {
     struct Configuration configuration;
     int tile_index = 0, resource_index = 0, time = 0;
     Vector2 mouse;
-    static bool visible_debug;
     static std::string last_collision;
     const float height_delta = WINDOW_HEIGHT * 13.5;
 
@@ -507,14 +529,20 @@ public:
     }
 
     void render() {
+        int row = TILE_SIZE;
+
         draw_resources();
         for (auto &object: objects) {
             object->render();
         }
         if (visible_debug) {
-            draw_gud();
+            row = draw_gud();
             draw_other();
         }
+        row += MARGIN_SIZE + 15;
+        visible_debug = GuiToggle(Rectangle{.x = 2 + MARGIN_SIZE + 190,
+                                          .y = (float) row + height_delta + MARGIN_SIZE, .width = 30, .height = 16},
+                                  "DBG", visible_debug);
     }
 
     void update() {
@@ -707,7 +735,7 @@ private:
         }
     }
 
-    void draw_gud() {
+    int draw_gud() {
         int row = MARGIN_SIZE;
 
         DrawText(TextFormat("FPS: %i", GetFPS()), 2 + MARGIN_SIZE,
@@ -749,6 +777,7 @@ private:
                      2 + MARGIN_SIZE,
                      row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
         }
+        return row;
     }
 
     void draw_resources() const {
@@ -874,7 +903,6 @@ public:
 };
 
 std::string Game::last_collision = {};
-bool Game::visible_debug = true;
 
 int
 main(int argc, char **argv) {
