@@ -86,6 +86,9 @@ struct Writable {
 
     virtual void on_line(bool line) {
     }
+
+    virtual void axis_angle(float angle) {
+    }
 };
 
 struct Engine {
@@ -131,6 +134,8 @@ struct EngineStated : public Engine, public Readable, public Writable {
     bool _on_line = false;
     int _rfid_point = -1;
 
+    float _angle = 0.f;
+
     explicit EngineStated(void (*tf)(EngineStated *engine) = [](EngineStated *engine) {}) : _tf(tf) {}
 
     [[nodiscard]] bool rotate_right() const override {
@@ -173,6 +178,10 @@ struct EngineStated : public Engine, public Readable, public Writable {
 
     void on_line(bool line) override {
         _on_line = line;
+    }
+
+    void axis_angle(float angle) override {
+        _angle = angle;
     }
 
     void tick() override {
@@ -686,6 +695,7 @@ public:
         if (loader != nullptr) {
             writable->on_line(loader->get_on_line());
             writable->rfid_point(loader->get_point());
+            writable->axis_angle(loader->get_angel());
         }
 
         if (IsKeyPressed(KEY_LEFT) && IsKeyDown(KEY_R)) {
