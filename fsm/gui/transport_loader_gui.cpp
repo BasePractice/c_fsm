@@ -16,6 +16,24 @@
 #include <sstream>
 #include <raymath.h>
 
+#if defined(POSITION_IMPLEMENT_STUBS)
+struct Position {
+    void *unused;
+};
+
+void Position_init(struct Position *machine) {
+    (void *)machine;
+}
+
+void Position_enter(struct Position *machine) {
+    (void *)machine;
+}
+#else
+
+#include <position.h>
+
+#endif
+
 struct Configuration configuration;
 static bool visible_debug = true;
 
@@ -100,7 +118,7 @@ struct Writable {
 };
 
 struct Engine {
-    Engine() : _default_readable(new Readable), _read(new Readable), _write(new Writable) {}
+    Engine() : _enable_default_readable(true), _default_readable(new Readable), _read(new Readable), _write(new Writable) {}
 
     explicit Engine(Readable *read, Writable *write) : _enable_default_readable(true), _default_readable(new Readable),
                                                        _read(read), _write(write) {}
@@ -149,7 +167,7 @@ struct EngineStated : public Engine, public Readable, public Writable {
 
     float _angle = 0.f;
 
-    explicit EngineStated(void (*tf)(EngineStated *engine) = [](EngineStated *engine) {}) : _tf(tf) {}
+    explicit EngineStated(void (*tf)(EngineStated *, void *), void *ud) : _tf(tf), _ud(ud) {}
 
     [[nodiscard]] bool rotate_right() const override {
         return _rotate_right;
@@ -214,10 +232,10 @@ struct EngineStated : public Engine, public Readable, public Writable {
     }
 
     void tick() override {
-        (*_tf)(this);
+        (*_tf)(this, _ud);
     }
 
-private:
+
     void reset() {
         _on_line = false;
         _rfid_point = -1;
@@ -233,7 +251,10 @@ private:
         _distance_right = -1;
     }
 
-    void (*_tf)(EngineStated *engine);
+private:
+    void (*_tf)(EngineStated *engine, void *ud);
+
+    void *_ud;
 };
 
 struct Context {
@@ -488,13 +509,13 @@ public:
 
         if (input->rotate_right()) {
             rotate_angle += 0.5;
-            if (rotate_angle >= 359.8) {
+            if (rotate_angle >= 359.4) {
                 rotate_angle = 0;
             }
         }
         if (input->rotate_left()) {
             rotate_angle -= 0.5;
-            if (rotate_angle < 0.2) {
+            if (rotate_angle < 0.6) {
                 rotate_angle = 360;
             }
         }
@@ -717,13 +738,13 @@ public:
     void update() {
         auto engine = this->engine();
         auto writable = engine->write();
-        if (go) {
-            engine->tick();
-        }
 
         time = (int) GetTime() * 100;
         mouse = GetMousePosition();
 
+        if (go) {
+            engine->tick();
+        }
         for (auto object: objects) {
             object->update(this, time);
         }
@@ -1101,11 +1122,74 @@ std::string Game::last_collision = {};
 
 int
 main(int argc, char **argv) {
+    Position position{};
     (void) argc;
     (void) argv;
-    auto engine = new EngineStated([](EngineStated *engine) {
-        std::cout << "EngineStated: tick" << std::endl;
-    });
+
+    Position_init(&position);
+    auto pf = [](EngineStated *engine, void *ud) {
+        auto pos = reinterpret_cast<Position *>(ud);
+        pos->angle = engine->_angle;
+        pos->point = engine->_rfid_point;
+        pos->distance_top = engine->_distance_top;
+        pos->distance_bottom = engine->_distance_bottom;
+        pos->distance_left = engine->_distance_left;
+        pos->distance_right = engine->_distance_right;
+        pos->machine_gas = false;
+        pos->machine_back = false;
+        pos->machine_shift_left = false;
+        pos->machine_shift_right = false;
+        pos->machine_rot_left = false;
+        pos->machine_rot_right = false;
+        Position_enter(pos);
+        engine->_do_gas = pos->machine_gas;
+        engine->_do_break = pos->machine_back;
+        engine->_do_right = pos->machine_shift_right;
+        engine->_do_left = pos->machine_shift_left;
+        engine->_rotate_left = pos->machine_rot_left;
+        engine->_rotate_right = pos->machine_rot_right;
+        {
+            switch (pos->state) {
+                case POSITION_ANGLE_225:
+                    fprintf(stdout, "POSITION_ANGLE_225: %f\n", engine->_angle);
+                    break;
+                case POSITION_ANGLE_315:
+                    fprintf(stdout, "POSITION_ANGLE_315: %f\n", engine->_angle);
+                    break;
+                case POSITION_START:
+                    fprintf(stdout, "POSITION_START: %f\n", engine->_angle);
+                    break;
+                case POSITION_ANGLE_360:
+                    fprintf(stdout, "POSITION_ANGLE_360: %f\n", engine->_angle);
+                    break;
+                case POSITION_SEARCHLINE:
+                    fprintf(stdout, "POSITION_SEARCHLINE: %f\n", engine->_angle);
+                    break;
+                case POSITION_ANGLE_135:
+                    fprintf(stdout, "POSITION_ANGLE_135: %f\n", engine->_angle);
+                    break;
+                case POSITION_ROTATED:
+                    fprintf(stdout, "POSITION_ROTATED: %f\n", engine->_angle);
+                    break;
+                case POSITION_ANGLE_45:
+                    fprintf(stdout, "POSITION_ANGLE_45: %f\n", engine->_angle);
+                    break;
+                case POSITION_ANGLE_180:
+                    fprintf(stdout, "POSITION_ANGLE_180: %f\n", engine->_angle);
+                    break;
+                case POSITION_ANGLE_270:
+                    fprintf(stdout, "POSITION_ANGLE_270: %f\n", engine->_angle);
+                    break;
+                case POSITION_END:
+                    fprintf(stdout, "POSITION_END: %f\n", engine->_angle);
+                    break;
+                case POSITION_ANGLE_90:
+                    fprintf(stdout, "POSITION_ANGLE_90: %f\n", engine->_angle);
+                    break;
+            }
+        }
+    };
+    auto engine = new EngineStated(pf, &position);
 
     InitWindow(WINDOW_WIDTH * TILE_SIZE + MARGIN_SIZE, WINDOW_HEIGHT * TILE_SIZE + MARGIN_SIZE, "Транспортер");
     SetTargetFPS(60);
@@ -1123,6 +1207,7 @@ main(int argc, char **argv) {
         if (IsKeyPressed(KEY_C)) {
             TakeScreenshot("export.png");
         }
+        engine->reset();
     }
     CloseWindow();
     matrix_destroy(&configuration.map);
