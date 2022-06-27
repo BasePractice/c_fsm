@@ -89,13 +89,21 @@ struct Writable {
 
     virtual void axis_angle(float angle) {
     }
+
+    virtual void distance_top(float value) {}
+
+    virtual void distance_bottom(float value) {}
+
+    virtual void distance_left(float value) {}
+
+    virtual void distance_right(float value) {}
 };
 
 struct Engine {
     Engine() : _default_readable(new Readable), _read(new Readable), _write(new Writable) {}
 
     explicit Engine(Readable *read, Writable *write) : _enable_default_readable(true), _default_readable(new Readable),
-    _read(read), _write(write) {}
+                                                       _read(read), _write(write) {}
 
     void set_default_readable(bool value) {
         _enable_default_readable = value;
@@ -116,7 +124,7 @@ struct Engine {
     }
 
 protected:
-    bool            _enable_default_readable;
+    bool _enable_default_readable;
     Readable *const _default_readable;
 private:
     Readable *const _read;
@@ -130,6 +138,11 @@ struct EngineStated : public Engine, public Readable, public Writable {
     bool _do_break = false;
     bool _do_left = false;
     bool _do_right = false;
+
+    float _distance_top = -1;
+    float _distance_bottom = -1;
+    float _distance_left = -1;
+    float _distance_right = -1;
 
     bool _on_line = false;
     int _rfid_point = -1;
@@ -184,6 +197,22 @@ struct EngineStated : public Engine, public Readable, public Writable {
         _angle = angle;
     }
 
+    void distance_top(float value) override {
+        _distance_top = value;
+    }
+
+    void distance_bottom(float value) override {
+        _distance_bottom = value;
+    }
+
+    void distance_left(float value) override {
+        _distance_left = value;
+    }
+
+    void distance_right(float value) override {
+        _distance_right = value;
+    }
+
     void tick() override {
         (*_tf)(this);
     }
@@ -198,6 +227,10 @@ private:
         _do_break = false;
         _do_left = false;
         _do_right = false;
+        _distance_top = -1;
+        _distance_bottom = -1;
+        _distance_left = -1;
+        _distance_right = -1;
     }
 
     void (*_tf)(EngineStated *engine);
@@ -449,7 +482,9 @@ public:
         float dy = y;
         float rotate_angle = angle;
         (void) time;
-        auto input = context->engine()->read();
+        auto engine = context->engine();
+        auto input = engine->read();
+        auto write = engine->write();
 
         if (input->rotate_right()) {
             rotate_angle += 0.5;
@@ -696,6 +731,10 @@ public:
             writable->on_line(loader->get_on_line());
             writable->rfid_point(loader->get_point());
             writable->axis_angle(loader->get_angel());
+            writable->distance_top(loader->get_uv_top().distance);
+            writable->distance_bottom(loader->get_uv_bottom().distance);
+            writable->distance_left(loader->get_uv_left().distance);
+            writable->distance_right(loader->get_uv_right().distance);
         }
 
         if (IsKeyPressed(KEY_LEFT) && IsKeyDown(KEY_R)) {
@@ -917,8 +956,8 @@ private:
                                           .y = (float) row + height_delta + MARGIN_SIZE, .width = 30, .height = 16},
                                   "DBG", visible_debug);
         default_readable = GuiToggle(Rectangle{.x = button_offset + 80,
-                                          .y = (float) row + height_delta + MARGIN_SIZE, .width = 30, .height = 16},
-                                  "RDR", default_readable);
+                                             .y = (float) row + height_delta + MARGIN_SIZE, .width = 30, .height = 16},
+                                     "RDR", default_readable);
         if (loader != nullptr && visible_debug) {
             row += MARGIN_SIZE + 15;
             DrawText(TextFormat("LDR: [%d, %d],  ANG: %f, POT: %d, ONL: %s",
