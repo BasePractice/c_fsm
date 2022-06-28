@@ -468,6 +468,7 @@ class Loader : public Object {
     float rfid_radius = 5;
     int point = -1;
     bool on_line = false;
+    int damaged = 0;
 public:
     [[nodiscard]] struct Device get_uv_top() const {
         return device_top;
@@ -495,6 +496,14 @@ public:
 
     [[nodiscard]] bool get_on_line() const {
         return on_line;
+    }
+
+    [[nodiscard]] int get_damage() const {
+        return damaged;
+    }
+
+    void damage() {
+        ++damaged;
     }
 
     void update(Context *context, int time) override {
@@ -575,6 +584,8 @@ public:
             if (!collision) {
                 x = dx;
                 y = dy;
+            } else {
+                damage();
             }
             angle = rotate_angle;
         }
@@ -981,9 +992,9 @@ private:
                                      "RDR", default_readable);
         if (loader != nullptr && visible_debug) {
             row += MARGIN_SIZE + 15;
-            DrawText(TextFormat("LDR: [%d, %d],  ANG: %f, POT: %d, ONL: %s",
+            DrawText(TextFormat("LDR: [%d, %d],  ANG: %f, POT: %d, ONL: %s, DMG: %d",
                                 (int) loader->get_x(), (int) loader->get_y(), loader->get_angel(), loader->get_point(),
-                                loader->get_on_line() ? "true" : "false"),
+                                loader->get_on_line() ? "true" : "false", loader->get_damage()),
                      2 + MARGIN_SIZE,
                      row + (int) height_delta + MARGIN_SIZE, 16, color_gud);
             row += MARGIN_SIZE + 15;
@@ -1122,96 +1133,54 @@ std::string Game::last_collision = {};
 
 int
 main(int argc, char **argv) {
-    Position position{};
+    Controller controller{};
     (void) argc;
     (void) argv;
 
-    Position_init(&position);
+    Controller_init(&controller);
     auto pf = [](EngineStated *engine, void *ud) {
-        auto pos = reinterpret_cast<Position *>(ud);
-        pos->angle = engine->_angle;
-        pos->point = engine->_rfid_point;
-        pos->on_line = engine->_on_line;
-        pos->distance_top = engine->_distance_top;
-        pos->distance_bottom = engine->_distance_bottom;
-        pos->distance_left = engine->_distance_left;
-        pos->distance_right = engine->_distance_right;
-        pos->machine_gas = false;
-        pos->machine_back = false;
-        pos->machine_shift_left = false;
-        pos->machine_shift_right = false;
-        pos->machine_rot_left = false;
-        pos->machine_rot_right = false;
-        Position_enter(pos);
-        engine->_do_gas = pos->machine_gas;
-        engine->_do_break = pos->machine_back;
-        engine->_do_right = pos->machine_shift_right;
-        engine->_do_left = pos->machine_shift_left;
-        engine->_rotate_left = pos->machine_rot_left;
-        engine->_rotate_right = pos->machine_rot_right;
+        auto ctrl = reinterpret_cast<Controller *>(ud);
+        ctrl->angle = engine->_angle;
+        ctrl->point = engine->_rfid_point;
+        ctrl->on_line = engine->_on_line;
+        ctrl->distance_top = engine->_distance_top;
+        ctrl->distance_bottom = engine->_distance_bottom;
+        ctrl->distance_left = engine->_distance_left;
+        ctrl->distance_right = engine->_distance_right;
+        ctrl->machine_gas = false;
+        ctrl->machine_back = false;
+        ctrl->machine_shift_left = false;
+        ctrl->machine_shift_right = false;
+        ctrl->machine_rot_left = false;
+        ctrl->machine_rot_right = false;
+        Controller_enter(ctrl);
+        engine->_do_gas = ctrl->machine_gas;
+        engine->_do_break = ctrl->machine_back;
+        engine->_do_right = ctrl->machine_shift_right;
+        engine->_do_left = ctrl->machine_shift_left;
+        engine->_rotate_left = ctrl->machine_rot_left;
+        engine->_rotate_right = ctrl->machine_rot_right;
         {
-            switch (pos->state) {
-                case POSITION_ANGLE_225:
-                    fprintf(stdout, "POSITION_ANGLE_225: %f\n", engine->_angle);
+            switch (ctrl->state) {
+                case CONTROLLER_DETECT_ANGLE:
+                    fprintf(stdout, "CONTROLLER_DETECT_ANGLE: %f\n", engine->_angle);
                     break;
-                case POSITION_ANGLE_315:
-                    fprintf(stdout, "POSITION_ANGLE_315: %f\n", engine->_angle);
+                case CONTROLLER_DETECT_POINT:
+                    fprintf(stdout, "CONTROLLER_DETECT_POINT: %d, POINT: %s\n", engine->_rfid_point, engine->_on_line ? "true" : "false");
                     break;
-                case POSITION_START:
-                    fprintf(stdout, "POSITION_START: %f\n", engine->_angle);
+                case CONTROLLER_DETECT_LINE:
+                    fprintf(stdout, "CONTROLLER_DETECT_LINE: %s\n", engine->_on_line ? "true" : "false");
                     break;
-                case POSITION_ANGLE_360:
-                    fprintf(stdout, "POSITION_ANGLE_360: %f\n", engine->_angle);
+                case CONTROLLER_END:
+                    fprintf(stdout, "CONTROLLER_END: %d\n", engine->_rfid_point);
                     break;
-                case POSITION_SEARCHLINE:
-                    fprintf(stdout, "POSITION_SEARCHLINE: %f\n", engine->_angle);
-                    break;
-                case POSITION_ANGLE_135:
-                    fprintf(stdout, "POSITION_ANGLE_135: %f\n", engine->_angle);
-                    break;
-                case POSITION_ROTATED:
-                    fprintf(stdout, "POSITION_ROTATED: %f\n", engine->_angle);
-                    break;
-                case POSITION_ANGLE_45:
-                    fprintf(stdout, "POSITION_ANGLE_45: %f\n", engine->_angle);
-                    break;
-                case POSITION_ANGLE_180:
-                    fprintf(stdout, "POSITION_ANGLE_180: %f\n", engine->_angle);
-                    break;
-                case POSITION_ANGLE_270:
-                    fprintf(stdout, "POSITION_ANGLE_270: %f\n", engine->_angle);
-                    break;
-                case POSITION_END:
-                    fprintf(stdout, "POSITION_END: %f\n", engine->_angle);
-                    break;
-                case POSITION_ANGLE_90:
-                    fprintf(stdout, "POSITION_ANGLE_90: %f\n", engine->_angle);
-                    break;
-                case POSITION_SEARCHLINEDETECTWALL:
-                    fprintf(stdout, "POSITION_SEARCHLINEDETECTWALL\n");
-                    break;
-                case POSITION_SEARCHLINEBOTTOM:
-                    fprintf(stdout, "POSITION_SEARCHLINEBOTTOM\n");
-                    break;
-                case POSITION_STOP:
-                    fprintf(stdout, "POSITION_STOP\n");
-                    break;
-                case POSITION_SEARCHLINELEFT:
-                    fprintf(stdout, "POSITION_SEARCHLINELEFT\n");
-                    break;
-                case POSITION_SEARCHLINERIGHT:
-                    fprintf(stdout, "POSITION_SEARCHLINERIGHT\n");
-                    break;
-                case POSITION_SEARCHLINEEND:
-                    fprintf(stdout, "POSITION_SEARCHLINEEND\n");
-                    break;
-                case POSITION_SEARCHLINEUP:
-                    fprintf(stdout, "POSITION_SEARCHLINEUP\n");
+                case CONTROLLER_START:
+                    fprintf(stdout, "CONTROLLER_START\n");
                     break;
             }
         }
     };
-    auto engine = new EngineStated(pf, &position);
+    auto engine = new EngineStated(pf, &controller);
 
     InitWindow(WINDOW_WIDTH * TILE_SIZE + MARGIN_SIZE, WINDOW_HEIGHT * TILE_SIZE + MARGIN_SIZE, "Транспортер");
     SetTargetFPS(60);
