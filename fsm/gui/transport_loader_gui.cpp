@@ -580,7 +580,7 @@ public:
             collision = context->is_collision(dtl, dtr);
             collision |= context->is_collision(dtr, dbr);
             collision |= context->is_collision(dbr, dbl);
-            collision |= context->is_collision(dbl, dtl);
+            collision |= context->is_collision(dtl, dbl);
             if (!collision) {
                 x = dx;
                 y = dy;
@@ -1176,6 +1176,9 @@ main(int argc, char **argv) {
                     break;
                 case CONTROLLER_START:
                     fprintf(stdout, "CONTROLLER_START\n");
+                    break;
+                case CONTROLLER_RESET:
+                    fprintf(stdout, "CONTROLLER_RESET\n");
                     break;
             }
         }
