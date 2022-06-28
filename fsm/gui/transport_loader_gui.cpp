@@ -1160,16 +1160,17 @@ main(int argc, char **argv) {
         engine->_do_left = ctrl->machine_shift_left;
         engine->_rotate_left = ctrl->machine_rot_left;
         engine->_rotate_right = ctrl->machine_rot_right;
-        {
+        if (visible_debug) {
+            const char *online = engine->_on_line ? "true" : "false";
             switch (ctrl->state) {
                 case CONTROLLER_DETECT_ANGLE:
                     fprintf(stdout, "CONTROLLER_DETECT_ANGLE: %f\n", engine->_angle);
                     break;
                 case CONTROLLER_DETECT_POINT:
-                    fprintf(stdout, "CONTROLLER_DETECT_POINT: %d, POINT: %s\n", engine->_rfid_point, engine->_on_line ? "true" : "false");
+                    fprintf(stdout, "CONTROLLER_DETECT_POINT: %d, POINT: %s\n", engine->_rfid_point, online);
                     break;
                 case CONTROLLER_DETECT_LINE:
-                    fprintf(stdout, "CONTROLLER_DETECT_LINE: %s\n", engine->_on_line ? "true" : "false");
+                    fprintf(stdout, "CONTROLLER_DETECT_LINE: %s\n", online);
                     break;
                 case CONTROLLER_END:
                     fprintf(stdout, "CONTROLLER_END: %d\n", engine->_rfid_point);
@@ -1179,6 +1180,12 @@ main(int argc, char **argv) {
                     break;
                 case CONTROLLER_RESET:
                     fprintf(stdout, "CONTROLLER_RESET\n");
+                    break;
+                case CONTROLLER_STOP:
+                    fprintf(stdout, "CONTROLLER_STOP\n");
+                    break;
+                case CONTROLLER_ERROR:
+                    fprintf(stdout, "CONTROLLER_ERROR\n");
                     break;
             }
         }
