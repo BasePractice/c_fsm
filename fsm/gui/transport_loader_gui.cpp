@@ -8,6 +8,7 @@
 #include <raymath.h>
 
 #define RAYGUI_IMPLEMENTATION
+#pragma GCC diagnostic ignored "-Wenum-compare"
 
 #include <raygui.h>
 #include <cassert>
@@ -1133,13 +1134,13 @@ std::string Game::last_collision = {};
 
 int
 main(int argc, char **argv) {
-    Controller controller{};
+    Parallel controller{};
     (void) argc;
     (void) argv;
 
-    Controller_init(&controller);
+    Parallel_init(&controller);
     auto pf = [](EngineStated *engine, void *ud) {
-        auto ctrl = reinterpret_cast<Controller *>(ud);
+        auto ctrl = reinterpret_cast<Parallel *>(ud);
         ctrl->angle = engine->_angle;
         ctrl->point = engine->_rfid_point;
         ctrl->on_line = engine->_on_line;
@@ -1153,7 +1154,7 @@ main(int argc, char **argv) {
         ctrl->machine_shift_right = false;
         ctrl->machine_rot_left = false;
         ctrl->machine_rot_right = false;
-        Controller_enter(ctrl);
+        Parallel_enter(ctrl);
         engine->_do_gas = ctrl->machine_gas;
         engine->_do_break = ctrl->machine_back;
         engine->_do_right = ctrl->machine_shift_right;
@@ -1162,32 +1163,59 @@ main(int argc, char **argv) {
         engine->_rotate_right = ctrl->machine_rot_right;
         if (visible_debug) {
             const char *online = engine->_on_line ? "true" : "false";
-            switch (ctrl->state) {
-                case CONTROLLER_DETECT_ANGLE:
-                    fprintf(stdout, "CONTROLLER_DETECT_ANGLE: %f\n", engine->_angle);
+            switch (ctrl->controller.state) {
+                case PARALLEL_CONTROLLER_DETECT_ANGLE:
+                    fprintf(stdout, "PARALLEL_CONTROLLER_DETECT_ANGLE: %f, ", engine->_angle);
                     break;
-                case CONTROLLER_DETECT_POINT:
-                    fprintf(stdout, "CONTROLLER_DETECT_POINT: %d, POINT: %s\n", engine->_rfid_point, online);
+                case PARALLEL_CONTROLLER_DETECT_POINT:
+                    fprintf(stdout, "PARALLEL_CONTROLLER_DETECT_POINT: %d, POINT: %s, ", engine->_rfid_point, online);
                     break;
-                case CONTROLLER_DETECT_LINE:
-                    fprintf(stdout, "CONTROLLER_DETECT_LINE: %s\n", online);
+                case PARALLEL_CONTROLLER_DETECT_LINE:
+                    fprintf(stdout, "PARALLEL_CONTROLLER_DETECT_LINE: %s, ", online);
                     break;
-                case CONTROLLER_END:
-                    fprintf(stdout, "CONTROLLER_END: %d\n", engine->_rfid_point);
+                case PARALLEL_CONTROLLER_START:
+                    fprintf(stdout, "PARALLEL_CONTROLLER_START, ");
                     break;
-                case CONTROLLER_START:
-                    fprintf(stdout, "CONTROLLER_START\n");
+                case PARALLEL_CONTROLLER_RESET:
+                    fprintf(stdout, "PARALLEL_CONTROLLER_RESET, ");
                     break;
-                case CONTROLLER_RESET:
-                    fprintf(stdout, "CONTROLLER_RESET\n");
+                case PARALLEL_CONTROLLER_ERROR:
+                    fprintf(stdout, "PARALLEL_CONTROLLER_ERROR, ");
                     break;
-                case CONTROLLER_STOP:
-                    fprintf(stdout, "CONTROLLER_STOP\n");
+                case PARALLEL_CONTROLLER_EXECUTING_COMMAND:
+                    fprintf(stdout, "PARALLEL_CONTROLLER_EXECUTING_COMMAND, ");
                     break;
-                case CONTROLLER_ERROR:
-                    fprintf(stdout, "CONTROLLER_ERROR\n");
+                case PARALLEL_CONTROLLER_WAITING:
+                    fprintf(stdout, "PARALLEL_CONTROLLER_WAITING, ");
+                    break;
+                case PARALLEL_CONTROLLER_END:
+                    fprintf(stdout, "PARALLEL_CONTROLLER_END, ");
                     break;
             }
+            switch (ctrl->command.state) {
+                case PARALLEL_COMMAND_READING:
+                    fprintf(stdout, "PARALLEL_COMMAND_READING");
+                    break;
+                case PARALLEL_COMMAND_COMPLETE_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_COMPLETE_CODE");
+                    break;
+                case PARALLEL_COMMAND_RESET_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_RESET_CODE");
+                    break;
+                case PARALLEL_COMMAND_DECODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_DECODE");
+                    break;
+                case PARALLEL_COMMAND_SAVING:
+                    fprintf(stdout, "PARALLEL_COMMAND_SAVING");
+                    break;
+                case PARALLEL_COMMAND_END:
+                    fprintf(stdout, "PARALLEL_COMMAND_END");
+                    break;
+                case PARALLEL_COMMAND_UNKNOWN_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_UNKNOWN_CODE");
+                    break;
+            }
+            fprintf(stdout, "\n");
         }
     };
     auto engine = new EngineStated(pf, &controller);
