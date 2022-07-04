@@ -73,6 +73,165 @@ static int map[] = {
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 
+class PathLine {
+
+
+    const MapMatrix *path;
+    MapMatrix used{};
+
+public:
+    explicit PathLine(const MapMatrix *path) : path(path) {
+        memset(&used, 0, sizeof(used));
+        matrix_allocate(&used, path->size);
+    }
+
+    ~PathLine() {
+        matrix_destroy(&used);
+    }
+
+    struct Part {
+        int col;
+        int row;
+        int point;
+
+        enum Direction {
+            Left, Right, Up, Down, Stay
+        };
+
+        Direction direction;
+
+        explicit Part(const int col, const int row, const int point = -1, const Direction direction = Stay)
+                : col(col), row(row), point(point), direction(direction) {}
+
+        Part(const Part &other) = default;
+
+        Part &operator=(const Part &other) = default;
+
+        bool operator==(const Part &other) const = default;
+
+        friend std::ostream &operator<<(std::ostream &stream, const PathLine::Part &part);
+    };
+
+    std::vector<Part> search(int point_start, int point_stop, const Part::Direction direction) {
+        struct Dot {
+            int col, row, point;
+            Part::Direction direction;
+            std::vector<Part> path{};
+
+            [[nodiscard]] Dot copy(Part::Direction cd) const {
+                return {col, row, point, cd, path};
+            }
+        };
+
+        std::vector<Dot> dots;
+        Dot start{.col = 0, .row = 0, .point = point_start, .direction = direction, .path{}};
+        Dot stop{};
+        bool find = false;
+
+        for (int row = 0; row < path->size && !find; ++row) {
+            for (int col = 0; col < path->size; ++col) {
+                auto val = (size_t) matrix_get(path, row, col);
+                if (val == point_start) {
+                    start.row = row;
+                    start.col = col;
+                    find = true;
+//                    start.path.emplace_back(col, row, point_start, direction);
+                    break;
+                }
+            }
+        }
+        dots.push_back(start);
+        bool running = true;
+        do {
+            std::vector<Dot> copy;
+            for (auto &dot: dots) {
+                if ((bool) matrix_get(&used, dot.row, dot.col))
+                    continue;
+                matrix_put(&used, dot.row, dot.col, (MapMatrixValue) true);
+                auto it = (size_t) matrix_get(path, dot.row, dot.col);
+                if (it >= 1 && it < 90) {
+                    dot.path.emplace_back(dot.col, dot.row, (int) it, dot.direction);
+                    if (it == point_stop) {
+                        running = false;
+                        stop = dot;
+                        continue;
+                    }
+                }
+                auto origin = dot;
+                for (auto i: DIRECTIONS) {
+                    dot = origin;
+                    auto col = dot.col + i[0];
+                    auto row = dot.row + i[1];
+
+                    auto k = (size_t) matrix_get(path, row, col);
+                    auto u = (bool) matrix_get(&used, row, col);
+                    auto d = (Part::Direction) i[2];
+                    if (col >= 0 && col < path->size && row >= 0 && row < path->size && k != 0 && !u) {
+                        if (dot.direction != d) {
+                            dot = dot.copy(d);
+                        }
+                        dot.row = row;
+                        dot.col = col;
+                        dot.point = (k >= 1 && k < 90) ? (int) k : -1;
+                        dot.direction = d;
+                        dot.path.emplace_back(col, row, dot.point, d);
+                        copy.push_back(dot);
+                    }
+                }
+            }
+            dots = copy;
+        } while (!dots.empty() && running);
+        return [&]() {
+            auto prev = stop.path.end();
+            auto ret = std::vector<Part>();
+            for (auto it = stop.path.begin(); it != stop.path.end() ; ++it) {
+                if ((prev != stop.path.end() && *prev == *it) || (*it).point < 0) {
+                    continue;
+                }
+                prev = it;
+                ret.push_back(*it);
+            }
+            return ret;
+        }();
+    }
+
+private:
+    const int8_t DIRECTIONS[4][3] = {{0,  1,  Part::Down},
+                                     {1,  0,  Part::Right},
+                                     {0,  -1, Part::Up},
+                                     {-1, 0,  Part::Left}};
+};
+
+static std::string direct(const PathLine::Part::Direction direction) {
+    switch (direction) {
+        case PathLine::Part::Left:
+            return "Left";
+        case PathLine::Part::Right:
+            return "Right";
+        case PathLine::Part::Up:
+            return "Up";
+        case PathLine::Part::Down:
+            return "Down";
+        case PathLine::Part::Stay:
+            return "Stay";
+    }
+    return "unknown";
+}
+
+std::ostream &operator<<(std::ostream &stream, const PathLine::Part &part) {
+    stream << "COL: " << part.col << ", ROW: " << part.row << ", POINT: " << part.point << ", DIR: "
+           << direct(part.direction) << std::endl;
+    return stream;
+}
+
+std::ostream &operator<<(std::ostream &stream, const std::vector<PathLine::Part> &paths) {
+    for (auto part: paths) {
+        stream << "COL: " << part.col << ", ROW: " << part.row << ", POINT: " << part.point << ", DIR: "
+               << direct(part.direction) << std::endl;
+    }
+    return stream;
+}
+
 struct Readable {
     [[nodiscard]] virtual bool rotate_right() const {
         return IsKeyDown(KEY_D);
@@ -119,7 +278,8 @@ struct Writable {
 };
 
 struct Engine {
-    Engine() : _enable_default_readable(true), _default_readable(new Readable), _read(new Readable), _write(new Writable) {}
+    Engine() : _enable_default_readable(true), _default_readable(new Readable), _read(new Readable),
+               _write(new Writable) {}
 
     explicit Engine(Readable *read, Writable *write) : _enable_default_readable(true), _default_readable(new Readable),
                                                        _read(read), _write(write) {}
@@ -689,7 +849,7 @@ private:
 class Game final : public Context {
     std::vector<Object *> objects;
     std::vector<Resource> resources;
-    struct Configuration configuration;
+    struct Configuration _configuration;
     int tile_index = 0, resource_index = 0, time = 0;
     Vector2 mouse;
     static std::string last_collision;
@@ -707,13 +867,17 @@ public:
     };
 
     explicit Game(Engine *engine, const char *const configuration_file) : Context(engine), resources(4),
-                                                                          configuration{},
+                                                                          _configuration{},
                                                                           mouse{} {
         resources[Grass].load("assets/Tilesets/Grass.png");
         resources[Dirt].load("assets/Tilesets/Tilled.Dirt.png");
         resources[Things].load("assets/Objects/Basic.Grass.Biom.Things.1.png");
         resources[Cow].load("assets/Characters/Free.Cow.Sprites.png");
-        read_configuration(&configuration, configuration_file);
+        read_configuration(&_configuration, configuration_file);
+    }
+
+    Configuration configuration() const {
+        return _configuration;
     }
 
     Game &add(Object *object) {
@@ -895,7 +1059,7 @@ public:
     [[nodiscard]] int rfid_point(Vector2 center, float radius) const override {
         auto col = (size_t) (center.x / TILE_SIZE);
         auto row = (size_t) (center.y / TILE_SIZE);
-        auto tail = (size_t) matrix_get(&configuration.paths, row, col);
+        auto tail = (size_t) matrix_get(&_configuration.paths, row, col);
         if (tail > 0 && tail < 20) {
             auto dx = (float) (((float) col * TILE_SIZE) + ((float) TILE_SIZE / 2));
             auto dy = (float) (((float) row * TILE_SIZE) + ((float) TILE_SIZE / 2));
@@ -911,7 +1075,7 @@ public:
         auto row = (size_t) (y / TILE_SIZE);
         auto dx = (float) (((float) col * TILE_SIZE) + ((float) TILE_SIZE / 2));
         auto dy = (float) (((float) row * TILE_SIZE) + ((float) TILE_SIZE / 2));
-        auto tail = (size_t) matrix_get(&configuration.paths, row, col);
+        auto tail = (size_t) matrix_get(&_configuration.paths, row, col);
         return tail > 0 && tail < 20 && dx == x && dy == y;
     }
 
@@ -920,7 +1084,7 @@ public:
         auto row = (size_t) (y / TILE_SIZE);
         auto dx = (float) (col * TILE_SIZE);
         auto dy = (float) (row * TILE_SIZE);
-        auto tail = (size_t) matrix_get(&configuration.paths, row, col);
+        auto tail = (size_t) matrix_get(&_configuration.paths, row, col);
         if (tail == 91 || tail == 92) {
             Vector2 sx = {.x = tail == 91 ? dx : dx + (float) TILE_SIZE / 2,
                     .y = tail == 91 ? dy + (float) TILE_SIZE / 2 : dy};
@@ -1010,9 +1174,9 @@ private:
 
     void draw_resources() const {
         const Resource &grass = resource(Grass);
-        for (size_t row = 0; row < configuration.map.size; ++row) {
-            for (size_t col = 0; col < configuration.map.size; ++col) {
-                auto idx = (size_t) matrix_get(&configuration.map, col, row);
+        for (size_t row = 0; row < _configuration.map.size; ++row) {
+            for (size_t col = 0; col < _configuration.map.size; ++col) {
+                auto idx = (size_t) matrix_get(&_configuration.map, col, row);
                 float cx = (float) row * grass.size();
                 float cy = (float) col * grass.size();
                 grass.draw(map[idx], cx, cy);
@@ -1024,13 +1188,13 @@ private:
                 }
             }
         }
-        draw_resources(&configuration.things, Things);
+        draw_resources(&_configuration.things, Things);
 //        draw_resources(&configuration.paths, Dirt, [](size_t x) { return path[x]; });
 
         if (visible_debug) {
-            for (size_t row = 0; row < configuration.paths.size; ++row) {
-                for (size_t col = 0; col < configuration.paths.size; ++col) {
-                    auto idx = (size_t) matrix_get(&configuration.paths, col, row);
+            for (size_t row = 0; row < _configuration.paths.size; ++row) {
+                for (size_t col = 0; col < _configuration.paths.size; ++col) {
+                    auto idx = (size_t) matrix_get(&_configuration.paths, col, row);
                     if (idx == 0 || idx >= 90) {
                         continue;
                     }
@@ -1064,9 +1228,9 @@ private:
     [[nodiscard]] int get_tail(float x, float y) const {
         auto col = (size_t) (x / TILE_SIZE);
         auto row = (size_t) (y / TILE_SIZE);
-        if (configuration.map.size <= row || configuration.map.size <= col)
+        if (_configuration.map.size <= row || _configuration.map.size <= col)
             return -1;
-        MapMatrixValue get = matrix_get(&configuration.map, row, col);
+        MapMatrixValue get = matrix_get(&_configuration.map, row, col);
         return static_cast<int>(reinterpret_cast<size_t>(get));
     }
 
@@ -1134,13 +1298,18 @@ std::string Game::last_collision = {};
 
 int
 main(int argc, char **argv) {
-    Parallel controller{};
+    struct State {
+        Parallel controller{};
+        Configuration configuration{};
+    } state;
     (void) argc;
     (void) argv;
 
-    Parallel_init(&controller);
+
+    Parallel_init(&state.controller);
     auto pf = [](EngineStated *engine, void *ud) {
-        auto ctrl = reinterpret_cast<Parallel *>(ud);
+        auto state = reinterpret_cast<State *>(ud);
+        auto ctrl = &state->controller;
         ctrl->angle = engine->_angle;
         ctrl->point = engine->_rfid_point;
         ctrl->on_line = engine->_on_line;
@@ -1161,6 +1330,24 @@ main(int argc, char **argv) {
         engine->_do_left = ctrl->machine_shift_left;
         engine->_rotate_left = ctrl->machine_rot_left;
         engine->_rotate_right = ctrl->machine_rot_right;
+        if (engine->_rfid_point > 0 && !ctrl->busy) {
+            PathLine p(&state->configuration.paths);
+            const auto dir_by_angle = [](float angle) {
+                if (angle == 0) {
+                    return PathLine::Part::Up;
+                } else if (angle == 90) {
+                    return PathLine::Part::Right;
+                } else if (angle == 180) {
+                    return PathLine::Part::Down;
+                } else if (angle == 270) {
+                    return PathLine::Part::Left;
+                }
+                return PathLine::Part::Up;
+            };
+            const std::vector<PathLine::Part> &path = p.search(4, 18, dir_by_angle(engine->_angle));
+            std::cout << "Find path: " << std::endl;
+            std::cout << path;
+        }
         if (visible_debug) {
             const char *online = engine->_on_line ? "true" : "false";
             switch (ctrl->controller.state) {
@@ -1214,15 +1401,43 @@ main(int argc, char **argv) {
                 case PARALLEL_COMMAND_UNKNOWN_CODE:
                     fprintf(stdout, "PARALLEL_COMMAND_UNKNOWN_CODE");
                     break;
+                case PARALLEL_COMMAND_ROTATE_RIGHT_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_ROTATE_RIGHT_CODE");
+                    break;
+                case PARALLEL_COMMAND_MOVING_DOWN_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_MOVING_DOWN_CODE");
+                    break;
+                case PARALLEL_COMMAND_MOVING_SHIFT_RIGHT_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_MOVING_SHIFT_RIGHT_CODE");
+                    break;
+                case PARALLEL_COMMAND_MOVING_UP_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_MOVING_UP_CODE");
+                    break;
+                case PARALLEL_COMMAND_ROTATE_LEFT_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_ROTATE_LEFT_CODE");
+                    break;
+                case PARALLEL_COMMAND_PUSHING_UP_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_PUSHING_UP_CODE");
+                    break;
+                case PARALLEL_COMMAND_MOVING_SHIFT_LEFT_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_MOVING_SHIFT_LEFT_CODE");
+                    break;
+                case PARALLEL_COMMAND_PUSHING_DOWN_CODE:
+                    fprintf(stdout, "PARALLEL_COMMAND_PUSHING_DOWN_CODE");
+                    break;
+                case PARALLEL_COMMAND_EMERGENCY:
+                    fprintf(stdout, "PARALLEL_COMMAND_EMERGENCY");
+                    break;
             }
             fprintf(stdout, "\n");
         }
     };
-    auto engine = new EngineStated(pf, &controller);
+    auto engine = new EngineStated(pf, &state);
 
     InitWindow(WINDOW_WIDTH * TILE_SIZE + MARGIN_SIZE, WINDOW_HEIGHT * TILE_SIZE + MARGIN_SIZE, "Транспортер");
     SetTargetFPS(60);
     Game g(engine, "factory.json");
+    state.configuration = g.configuration();
     g.cow(50, 50);
     g.cow(200, 300);
     g.cow(430, 500);
