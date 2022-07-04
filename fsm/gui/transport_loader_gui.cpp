@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <iostream>
+#include <functional>
 #include <transport_loader.h>
 #include <common.h>
 #include <raylib.h>
@@ -95,7 +96,7 @@ public:
         int point;
 
         enum Direction {
-            Left, Right, Up, Down, Stay
+            Left = 270, Right = 90, Up = 0, Down = 180, Stay = -1
         };
 
         Direction direction;
@@ -135,7 +136,6 @@ public:
                     start.row = row;
                     start.col = col;
                     find = true;
-//                    start.path.emplace_back(col, row, point_start, direction);
                     break;
                 }
             }
@@ -184,7 +184,7 @@ public:
         return [&]() {
             auto prev = stop.path.end();
             auto ret = std::vector<Part>();
-            for (auto it = stop.path.begin(); it != stop.path.end() ; ++it) {
+            for (auto it = stop.path.begin(); it != stop.path.end(); ++it) {
                 if ((prev != stop.path.end() && *prev == *it) || (*it).point < 0) {
                     continue;
                 }
@@ -196,10 +196,10 @@ public:
     }
 
 private:
-    const int8_t DIRECTIONS[4][3] = {{0,  1,  Part::Down},
-                                     {1,  0,  Part::Right},
-                                     {0,  -1, Part::Up},
-                                     {-1, 0,  Part::Left}};
+    const int DIRECTIONS[4][3] = {{0,  1,  Part::Down},
+                                  {1,  0,  Part::Right},
+                                  {0,  -1, Part::Up},
+                                  {-1, 0,  Part::Left}};
 };
 
 static std::string direct(const PathLine::Part::Direction direction) {
@@ -215,18 +215,18 @@ static std::string direct(const PathLine::Part::Direction direction) {
         case PathLine::Part::Stay:
             return "Stay";
     }
-    return "unknown";
+    return "Unknown";
 }
 
 std::ostream &operator<<(std::ostream &stream, const PathLine::Part &part) {
-    stream << "COL: " << part.col << ", ROW: " << part.row << ", POINT: " << part.point << ", DIR: "
+    stream << "Col: " << part.col << ", Row: " << part.row << ", Point: " << part.point << ", Dir: "
            << direct(part.direction) << std::endl;
     return stream;
 }
 
 std::ostream &operator<<(std::ostream &stream, const std::vector<PathLine::Part> &paths) {
     for (auto part: paths) {
-        stream << "COL: " << part.col << ", ROW: " << part.row << ", POINT: " << part.point << ", DIR: "
+        stream << "Col: " << part.col << ", Row: " << part.row << ", Point: " << part.point << ", Dir: "
                << direct(part.direction) << std::endl;
     }
     return stream;
@@ -1302,12 +1302,21 @@ main(int argc, char **argv) {
         Parallel controller{};
         Configuration configuration{};
     } state;
+    struct Command {
+        int code;
+        std::string name;
+        std::function<void(Parallel *)> cb;
+    };
     (void) argc;
     (void) argv;
 
 
     Parallel_init(&state.controller);
     auto pf = [](EngineStated *engine, void *ud) {
+        static std::vector<Command> commands;
+        static int next_command = -1;
+        static bool reset_command = false;
+
         auto state = reinterpret_cast<State *>(ud);
         auto ctrl = &state->controller;
         ctrl->angle = engine->_angle;
@@ -1323,14 +1332,19 @@ main(int argc, char **argv) {
         ctrl->machine_shift_right = false;
         ctrl->machine_rot_left = false;
         ctrl->machine_rot_right = false;
+        ctrl->command_executing = false;
+        ctrl->command_level = -1;
         Parallel_enter(ctrl);
+        ctrl->command_ready = false;
+        ctrl->command_reset = false;
         engine->_do_gas = ctrl->machine_gas;
         engine->_do_break = ctrl->machine_back;
         engine->_do_right = ctrl->machine_shift_right;
         engine->_do_left = ctrl->machine_shift_left;
         engine->_rotate_left = ctrl->machine_rot_left;
         engine->_rotate_right = ctrl->machine_rot_right;
-        if (engine->_rfid_point > 0 && !ctrl->busy) {
+        if (ctrl->controller.state == PARALLEL_CONTROLLER_WAITING && engine->_rfid_point > 0
+            && !ctrl->busy && !ctrl->command_executing && !reset_command) {
             PathLine p(&state->configuration.paths);
             const auto dir_by_angle = [](float angle) {
                 if (angle == 0) {
@@ -1344,10 +1358,49 @@ main(int argc, char **argv) {
                 }
                 return PathLine::Part::Up;
             };
-            const std::vector<PathLine::Part> &path = p.search(4, 18, dir_by_angle(engine->_angle));
+            const std::vector<PathLine::Part> &path = p.search(engine->_rfid_point, 18, dir_by_angle(engine->_angle));
+            commands.clear();
+            float angle = engine->_angle;
+            int point = engine->_rfid_point;
+            for (const auto &part: path) {
+                if ((int) angle != (int) part.direction && part.direction != PathLine::Part::Stay) {
+                    while ((int) angle != (int) part.direction) {
+                        commands.push_back(Command{.code = 3, .name = "Rot Right", .cb = nullptr});
+                        angle += 90;
+                        if (angle >= 360) {
+                            angle = 0;
+                        }
+                    }
+                }
+                if (point != part.point) {
+                    commands.push_back(Command{.code = 4, .name = &"To "[part.point], .cb = [&](Parallel *parallel) {
+                        parallel->command_point = part.point;
+                    }});
+                }
+            }
+            next_command = 0;
             std::cout << "Find path: " << std::endl;
             std::cout << path;
         }
+
+        if (next_command >= 0 && next_command < commands.size()) {
+            if (!ctrl->command_executing && !reset_command && !ctrl->busy) {
+                auto &cmd = commands[next_command];
+                ctrl->command_code = cmd.code;
+                ctrl->command_ready = true;
+                reset_command = true;
+                if (cmd.cb != nullptr) {
+                    cmd.cb(ctrl);
+                }
+                std::cout << "Send: " << cmd.name << std::endl;
+            }
+        }
+
+        if (ctrl->command_reset) {
+            ++next_command;
+            reset_command = true;
+        }
+
         if (visible_debug) {
             const char *online = engine->_on_line ? "true" : "false";
             switch (ctrl->controller.state) {
@@ -1399,7 +1452,7 @@ main(int argc, char **argv) {
                     fprintf(stdout, "PARALLEL_COMMAND_END");
                     break;
                 case PARALLEL_COMMAND_UNKNOWN_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_UNKNOWN_CODE");
+                    fprintf(stdout, "PARALLEL_COMMAND_UNKNOWN_CODE: %d", ctrl->command.code);
                     break;
                 case PARALLEL_COMMAND_ROTATE_RIGHT_CODE:
                     fprintf(stdout, "PARALLEL_COMMAND_ROTATE_RIGHT_CODE");
