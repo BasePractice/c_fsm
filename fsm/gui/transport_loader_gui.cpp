@@ -1364,17 +1364,38 @@ main(int argc, char **argv) {
             float angle = engine->_angle;
             int point = engine->_rfid_point;
             for (const auto &part: path) {
-                if ((int) angle != (int) part.direction && part.direction != PathLine::Part::Stay) {
-                    while ((int) angle != (int) part.direction) {
-                        commands.push_back(Command{.code = 3, .name = "Rot Right", .cb = nullptr});
-                        angle += 90;
-                        if (angle >= 360) {
-                            angle = 0;
+                float t_angle = angle;
+                if ((int) t_angle != (int) part.direction && part.direction != PathLine::Part::Stay) {
+                    int right = 0;
+                    int left = 0;
+                    while ((int) t_angle != (int) part.direction) {
+                        ++right;
+                        t_angle += 90;
+                        if (t_angle >= 360) {
+                            t_angle = 0;
                         }
                     }
+                    t_angle = angle;
+                    while ((int) t_angle != (int) part.direction) {
+                        ++left;
+                        t_angle -= 90;
+                        if (t_angle < 0) {
+                            t_angle = 360;
+                        }
+                    }
+                    if (right >= left) {
+                        for (int i = 0; i < left; ++i) {
+                            commands.push_back(Command{.code = 2, .name = "Rot Left", .cb = nullptr});
+                        }
+                    } else {
+                        for (int i = 0; i < right; ++i) {
+                            commands.push_back(Command{.code = 3, .name = "Rot Right", .cb = nullptr});
+                        }
+                    }
+
                 }
                 if (point != part.point) {
-                    commands.push_back(Command{.code = 4, .name = "To " + std::to_string(part.point), .cb = [&](Parallel *parallel) {
+                    commands.push_back(Command{.code = 4, .name = "To " + std::to_string(part.point), .cb = [=](Parallel *parallel) {
                         parallel->command_point = part.point;
                     }});
                 }
@@ -1393,8 +1414,7 @@ main(int argc, char **argv) {
                 if (cmd.cb != nullptr) {
                     cmd.cb(ctrl);
                 }
-                std::cout << "Send: " << cmd.name << std::endl;
-                std::cout.flush();
+                std::cout << "Send: " << cmd.name << std::endl << std::flush;
             }
         }
 
