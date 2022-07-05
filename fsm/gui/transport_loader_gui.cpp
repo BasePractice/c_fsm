@@ -1262,21 +1262,21 @@ private:
 
             intersect.x = start.x + (uA * (end.x - start.x));
             intersect.y = start.y + (uA * (end.y - start.y));
-            if (visible_debug) {
-                std::stringstream ss;
-                std::string collision;
-
-                ss << "uA: " << uA << ", uB: " << uB
-                   << ", sX: " << start.x << ", sY: " << start.y
-                   << ", eX: " << end.x << ", eY: " << end.y
-                   << ", gsX: " << ground_start.x << ", eY: " << ground_start.y
-                   << ", geX: " << ground_end.x << ", geY: " << ground_end.y;
-                collision = ss.str();
-                if (last_collision != collision) {
-                    std::cout << collision << std::endl;
-                    last_collision = collision;
-                }
-            }
+//            if (visible_debug) {
+//                std::stringstream ss;
+//                std::string collision;
+//
+//                ss << "uA: " << uA << ", uB: " << uB
+//                   << ", sX: " << start.x << ", sY: " << start.y
+//                   << ", eX: " << end.x << ", eY: " << end.y
+//                   << ", gsX: " << ground_start.x << ", eY: " << ground_start.y
+//                   << ", geX: " << ground_end.x << ", geY: " << ground_end.y;
+//                collision = ss.str();
+//                if (last_collision != collision) {
+//                    std::cout << collision << std::endl;
+//                    last_collision = collision;
+//                }
+//            }
             return true;
         }
 #endif
@@ -1316,6 +1316,7 @@ main(int argc, char **argv) {
         static std::vector<Command> commands;
         static int next_command = -1;
         static bool reset_command = false;
+        const int to_point = 18;
 
         auto state = reinterpret_cast<State *>(ud);
         auto ctrl = &state->controller;
@@ -1336,7 +1337,6 @@ main(int argc, char **argv) {
         ctrl->command_level = -1;
         Parallel_enter(ctrl);
         ctrl->command_ready = false;
-        ctrl->command_reset = false;
         engine->_do_gas = ctrl->machine_gas;
         engine->_do_break = ctrl->machine_back;
         engine->_do_right = ctrl->machine_shift_right;
@@ -1344,7 +1344,7 @@ main(int argc, char **argv) {
         engine->_rotate_left = ctrl->machine_rot_left;
         engine->_rotate_right = ctrl->machine_rot_right;
         if (ctrl->controller.state == PARALLEL_CONTROLLER_WAITING && engine->_rfid_point > 0
-            && !ctrl->busy && !ctrl->command_executing && !reset_command) {
+            && !ctrl->busy && !ctrl->command_executing && !reset_command && engine->_rfid_point != to_point) {
             PathLine p(&state->configuration.paths);
             const auto dir_by_angle = [](float angle) {
                 if (angle == 0) {
@@ -1358,7 +1358,8 @@ main(int argc, char **argv) {
                 }
                 return PathLine::Part::Up;
             };
-            const std::vector<PathLine::Part> &path = p.search(engine->_rfid_point, 18, dir_by_angle(engine->_angle));
+            const std::vector<PathLine::Part> &path = p.search(engine->_rfid_point, to_point,
+                                                               dir_by_angle(engine->_angle));
             commands.clear();
             float angle = engine->_angle;
             int point = engine->_rfid_point;
@@ -1373,13 +1374,13 @@ main(int argc, char **argv) {
                     }
                 }
                 if (point != part.point) {
-                    commands.push_back(Command{.code = 4, .name = &"To "[part.point], .cb = [&](Parallel *parallel) {
+                    commands.push_back(Command{.code = 4, .name = "To " + std::to_string(part.point), .cb = [&](Parallel *parallel) {
                         parallel->command_point = part.point;
                     }});
                 }
             }
             next_command = 0;
-            std::cout << "Find path: " << std::endl;
+            std::cout << "Searched path: " << std::endl;
             std::cout << path;
         }
 
@@ -1393,96 +1394,106 @@ main(int argc, char **argv) {
                     cmd.cb(ctrl);
                 }
                 std::cout << "Send: " << cmd.name << std::endl;
+                std::cout.flush();
             }
         }
 
-        if (ctrl->command_reset) {
+        if (ctrl->command_reset && reset_command) {
             ++next_command;
-            reset_command = true;
+            reset_command = false;
         }
 
         if (visible_debug) {
+            static std::string debug_line;
+            std::stringstream debug;
             const char *online = engine->_on_line ? "true" : "false";
             switch (ctrl->controller.state) {
                 case PARALLEL_CONTROLLER_DETECT_ANGLE:
-                    fprintf(stdout, "PARALLEL_CONTROLLER_DETECT_ANGLE: %f, ", engine->_angle);
+                    debug << "PARALLEL_CONTROLLER_DETECT_ANGLE: " << engine->_angle << ", ";
                     break;
                 case PARALLEL_CONTROLLER_DETECT_POINT:
-                    fprintf(stdout, "PARALLEL_CONTROLLER_DETECT_POINT: %d, POINT: %s, ", engine->_rfid_point, online);
+                    debug << "PARALLEL_CONTROLLER_DETECT_POINT: " << engine->_rfid_point << ", POINT: " << online
+                          << ", ";
                     break;
                 case PARALLEL_CONTROLLER_DETECT_LINE:
-                    fprintf(stdout, "PARALLEL_CONTROLLER_DETECT_LINE: %s, ", online);
+                    debug << "PARALLEL_CONTROLLER_DETECT_LINE: " << online << ", ";
                     break;
                 case PARALLEL_CONTROLLER_START:
-                    fprintf(stdout, "PARALLEL_CONTROLLER_START, ");
+                    debug << "PARALLEL_CONTROLLER_START, ";
                     break;
                 case PARALLEL_CONTROLLER_RESET:
-                    fprintf(stdout, "PARALLEL_CONTROLLER_RESET, ");
+                    debug << "PARALLEL_CONTROLLER_RESET, ";
                     break;
                 case PARALLEL_CONTROLLER_ERROR:
-                    fprintf(stdout, "PARALLEL_CONTROLLER_ERROR, ");
+                    debug << "PARALLEL_CONTROLLER_ERROR, ";
                     break;
                 case PARALLEL_CONTROLLER_EXECUTING_COMMAND:
-                    fprintf(stdout, "PARALLEL_CONTROLLER_EXECUTING_COMMAND, ");
+                    debug << "PARALLEL_CONTROLLER_EXECUTING_COMMAND, ";
                     break;
                 case PARALLEL_CONTROLLER_WAITING:
-                    fprintf(stdout, "PARALLEL_CONTROLLER_WAITING, ");
+                    debug << "PARALLEL_CONTROLLER_WAITING, ";
                     break;
                 case PARALLEL_CONTROLLER_END:
-                    fprintf(stdout, "PARALLEL_CONTROLLER_END, ");
+                    debug << "PARALLEL_CONTROLLER_END, ";
                     break;
             }
             switch (ctrl->command.state) {
                 case PARALLEL_COMMAND_READING:
-                    fprintf(stdout, "PARALLEL_COMMAND_READING");
+                    debug << "PARALLEL_COMMAND_READING";
                     break;
                 case PARALLEL_COMMAND_COMPLETE_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_COMPLETE_CODE");
+                    debug << "PARALLEL_COMMAND_COMPLETE_CODE";
                     break;
                 case PARALLEL_COMMAND_RESET_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_RESET_CODE");
+                    debug << "PARALLEL_COMMAND_RESET_CODE";
                     break;
                 case PARALLEL_COMMAND_DECODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_DECODE");
+                    debug << "PARALLEL_COMMAND_DECODE";
                     break;
                 case PARALLEL_COMMAND_SAVING:
-                    fprintf(stdout, "PARALLEL_COMMAND_SAVING");
+                    debug << "PARALLEL_COMMAND_SAVING";
                     break;
                 case PARALLEL_COMMAND_END:
-                    fprintf(stdout, "PARALLEL_COMMAND_END");
+                    debug << "PARALLEL_COMMAND_END";
                     break;
                 case PARALLEL_COMMAND_UNKNOWN_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_UNKNOWN_CODE: %d", ctrl->command.code);
+                    debug << "PARALLEL_COMMAND_UNKNOWN_CODE: " << ctrl->command.code;
                     break;
                 case PARALLEL_COMMAND_ROTATE_RIGHT_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_ROTATE_RIGHT_CODE");
+                    debug << "PARALLEL_COMMAND_ROTATE_RIGHT_CODE";
                     break;
                 case PARALLEL_COMMAND_MOVING_DOWN_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_MOVING_DOWN_CODE");
+                    debug << "PARALLEL_COMMAND_MOVING_DOWN_CODE";
                     break;
                 case PARALLEL_COMMAND_MOVING_SHIFT_RIGHT_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_MOVING_SHIFT_RIGHT_CODE");
+                    debug << "PARALLEL_COMMAND_MOVING_SHIFT_RIGHT_CODE";
                     break;
                 case PARALLEL_COMMAND_MOVING_UP_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_MOVING_UP_CODE");
+                    debug << "PARALLEL_COMMAND_MOVING_UP_CODE";
                     break;
                 case PARALLEL_COMMAND_ROTATE_LEFT_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_ROTATE_LEFT_CODE");
+                    debug << "PARALLEL_COMMAND_ROTATE_LEFT_CODE";
                     break;
                 case PARALLEL_COMMAND_PUSHING_UP_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_PUSHING_UP_CODE");
+                    debug << "PARALLEL_COMMAND_PUSHING_UP_CODE";
                     break;
                 case PARALLEL_COMMAND_MOVING_SHIFT_LEFT_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_MOVING_SHIFT_LEFT_CODE");
+                    debug << "PARALLEL_COMMAND_MOVING_SHIFT_LEFT_CODE";
                     break;
                 case PARALLEL_COMMAND_PUSHING_DOWN_CODE:
-                    fprintf(stdout, "PARALLEL_COMMAND_PUSHING_DOWN_CODE");
+                    debug << "PARALLEL_COMMAND_PUSHING_DOWN_CODE";
                     break;
                 case PARALLEL_COMMAND_EMERGENCY:
-                    fprintf(stdout, "PARALLEL_COMMAND_EMERGENCY");
+                    debug << "PARALLEL_COMMAND_EMERGENCY";
                     break;
             }
-            fprintf(stdout, "\n");
+            debug << std::endl;
+
+            auto output = debug.str();
+            if (output != debug_line) {
+                debug_line = output;
+                std::cout << debug_line << std::flush;
+            }
         }
     };
     auto engine = new EngineStated(pf, &state);
