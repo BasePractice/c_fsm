@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(fsm C)
 
-set(CMAKE_C_STANDARD 90)
+set(CMAKE_C_STANDARD 99)
 
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_executable(${PROJECT_NAME}_bulk fsm_bulk_main.c fsm_bulk.c fsm_bulk.h)
@@ -12,6 +12,7 @@ add_executable(${PROJECT_NAME}_welding fsm_welding.c fsm_welding.h fsm_welding_m
 add_executable(${PROJECT_NAME}_transport transport_loader.c transport_loader.h transport_loader_main.c)
 
 target_link_libraries(${PROJECT_NAME}_transport PRIVATE FSM::Common)
+target_link_libraries(${PROJECT_NAME}_bulk PRIVATE FSM::Common)
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/simulate.bulk.t DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/factory.json DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
@@ -91,4 +92,5 @@ if (POSITION_IMPLEMENT)
 else ()
     target_compile_definitions(${PROJECT_NAME}_transport_ui PRIVATE -DPOSITION_IMPLEMENT_STUBS)
 endif ()
+target_compile_definitions(${PROJECT_NAME}_transport_ui PRIVATE -D_DEBUG)
 

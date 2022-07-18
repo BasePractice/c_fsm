@@ -128,3 +128,30 @@ void matrix_destroy(struct MapMatrix *matrix) {
     }
 }
 
+void memory_set_bit(uint8_t *mem, const uint8_t bit) {
+    if (bit < 32) {
+        *((uint64_t *) mem) |= (1 << bit);
+    }
+}
+
+//#if defined(__GNUC__)
+#if 0
+__attribute__((always_inline)) bool memory_get_bit(const uint8_t *const mem, const uint8_t bit) {
+    bool flag;
+    asm("bt %2,%1; setb %0" : "=q" (flag) : "m" (*mem), "r" (bit));
+    return flag;
+}
+#else
+
+bool memory_get_bit(const uint8_t *const mem, const uint8_t bit) {
+    return (*((uint64_t *) mem) >> bit) & 0x01;
+}
+
+#endif
+
+void memory_reset_bit(uint8_t *mem, const uint8_t bit) {
+    if (bit < 32) {
+        *((uint64_t *) mem) &= (uint64_t)~(1 << bit);
+    }
+}
+

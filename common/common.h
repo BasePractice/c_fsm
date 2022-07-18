@@ -36,6 +36,10 @@ void string_add_symbol(struct String *string, char ch);
 void string_reset(struct String *string);
 void string_destroy(struct String *string);
 
+void memory_set_bit(uint8_t *mem, uint8_t bit);
+void memory_reset_bit(uint8_t *mem, uint8_t bit);
+bool memory_get_bit(const uint8_t *mem, uint8_t bit);
+
 bool
 binary_to_hex(const uint8_t *binary, size_t binary_size, char *hex_text, size_t *hex_text_size);
 
