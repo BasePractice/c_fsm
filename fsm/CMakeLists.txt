@@ -31,7 +31,7 @@ if (GUI)
     target_compile_definitions(${PROJECT_NAME}_transport_ui PRIVATE -DPLATFORM_DESKTOP)
     target_link_libraries(${PROJECT_NAME}_transport_ui PUBLIC raylib)
     target_link_libraries(${PROJECT_NAME}_transport_ui PRIVATE FSM::Common)
-    target_compile_definitions(${PROJECT_NAME}_transport_ui PUBLIC -DPLATFORM_DESKTOP -DGL_SILENCE_DEPRECATION)
+    target_compile_definitions(${PROJECT_NAME}_transport_ui PUBLIC -DPLATFORM_DESKTOP -DGL_SILENCE_DEPRECATION -D_DEBUG)
 
     add_executable(${PROJECT_NAME}_transport_samples_ui gui/transport_samples.cpp)
     set_property(TARGET ${PROJECT_NAME}_transport_samples_ui PROPERTY CXX_STANDARD 20)
