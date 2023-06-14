@@ -525,7 +525,7 @@ public:
         Rectangle src = rect(id), dest =
                 {.x = x, .y = y, .width = size(), .height = size()};
         Vector2 origin = {.x = 0.0f, .y = 0.0f};
-        DrawTextureTiled(texture, src, dest, origin, 0.f, 1.f, RAYWHITE);
+        DrawTexturePro(texture, src, dest, origin, 0.f, RAYWHITE);
     }
 
     Resource() : rects(), texture(), rects_length(0), rect_size(0) {}

@@ -68,7 +68,7 @@ public:
         Rectangle src = rect(id), dest =
                 {.x = x, .y = y, .width = size() * factor, .height = size() * factor};
         Vector2 origin = {.x = 0.0f, .y = 0.0f};
-        DrawTextureTiled(texture, src, dest, origin, 0.f, factor, RAYWHITE);
+        DrawTexturePro(texture, src, dest, origin, 0.f, RAYWHITE);
     }
 
     Resource() : rects(), texture(), rects_length(0), rect_size(0) {}
@@ -109,15 +109,15 @@ static Vector2 select(Vector2 point, float factor, float border_size) {
     auto row = (int) ((point.x - border_size) / (TILE_SIZE * factor));
     auto col = (int) ((point.y - border_size) / (TILE_SIZE * factor));
     if (col >= 0 && col < 8 && row >= 0 && row < 8) {
-        return {.x = (float)col, .y = (float)row};
+        return {.x = (float) col, .y = (float) row};
     }
-    return {.x = (float)-1, .y = (float)-1};
+    return {.x = (float) -1, .y = (float) -1};
 }
 
 static Rectangle select_rect(Vector2 id, float factor, float border_size) {
     if (id.x >= 0) {
-        return {.x = ((float)id.y * (TILE_SIZE * factor) + MARGIN_SIZE) + border_size,
-                .y = ((float)id.x * (TILE_SIZE * factor) + MARGIN_SIZE + border_size),
+        return {.x = ((float) id.y * (TILE_SIZE * factor) + MARGIN_SIZE) + border_size,
+                .y = ((float) id.x * (TILE_SIZE * factor) + MARGIN_SIZE + border_size),
                 .width = TILE_SIZE * factor, .height = TILE_SIZE * factor};
     }
     return {.x = 0, .y = 0, .width = 0, .height = 0};
@@ -143,8 +143,8 @@ int main() {
         ClearBackground(RAYWHITE);
 
         selected_id = select(mouse, factor, border_size);
-        if (selected_id.x >= 0) {
-            int d = board_pieces[(int)selected_id.x][(int)selected_id.y];
+        if (selected_id.x >= 0 && !selected) {
+            int d = board_pieces[(int) selected_id.x][(int) selected_id.y];
             if (d != Empty) {
                 selected_rect = select_rect(selected_id, factor, border_size);
                 selected = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
@@ -169,7 +169,10 @@ int main() {
             }
         }
         if (selected_rect.x > MARGIN_SIZE)
-            DrawRectangleLinesEx(selected_rect, 3.f, selected ? RED : LIGHTGRAY);
+            DrawRectangleLinesEx(selected_rect, 2.f, selected ? RED : LIGHTGRAY);
+        if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+            selected = false;
+        }
         EndDrawing();
         if (IsKeyPressed(KEY_C)) {
             TakeScreenshot("export.png");

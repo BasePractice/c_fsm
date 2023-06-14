@@ -25,12 +25,12 @@ if (GUI)
 endif ()
 
 if (ANALYZE_ENABLE)
-    pvs_studio_add_target(TARGET ${PROJECT_NAME}_chess.analyze ALL
+    pvs_studio_add_target(TARGET ${PROJECT_NAME}_main.analyze ALL
             OUTPUT FORMAT errorfile
-            ANALYZE ${PROJECT_NAME}_chess
+            ANALYZE ${PROJECT_NAME}_main
             MODE ${ANALYZE_MODE}
             C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
-            LOG ${PROJECT_NAME}_chess.err)
+            LOG ${PROJECT_NAME}_main.err)
 endif ()
 
 if (POSITION_IMPLEMENT)

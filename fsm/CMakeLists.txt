@@ -71,12 +71,6 @@ if (ANALYZE_ENABLE)
             MODE ${ANALYZE_MODE}
             C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
             LOG ${PROJECT_NAME}_welding.err)
-    pvs_studio_add_target(TARGET ${PROJECT_NAME}_transport_loader.analyze ALL
-            OUTPUT FORMAT errorfile
-            ANALYZE ${PROJECT_NAME}_transport_loader
-            MODE ${ANALYZE_MODE}
-            C_FLAGS -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk/usr/include
-            LOG ${PROJECT_NAME}_transport_loader.err)
 endif ()
 
 if (POSITION_IMPLEMENT)
